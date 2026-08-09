@@ -313,6 +313,8 @@ class StenoClient extends ChangeNotifier {
     List<String>? combos,
     int? delayMs,
     String? text,
+    int? rowSpan,
+    int? colSpan,
   }) {
     final cmd = <String, dynamic>{'cmd': 'edit_button', 'id': id};
     if (label != null) cmd['label'] = label;
@@ -320,6 +322,8 @@ class StenoClient extends ChangeNotifier {
     if (combos != null) cmd['combos'] = combos;
     if (delayMs != null) cmd['delay_ms'] = delayMs;
     if (text != null) cmd['text'] = text;
+    if (rowSpan != null) cmd['row_span'] = rowSpan;
+    if (colSpan != null) cmd['col_span'] = colSpan;
     _sendCmd(cmd);
   }
 

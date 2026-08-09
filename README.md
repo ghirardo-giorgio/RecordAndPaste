@@ -79,6 +79,20 @@ ogni dashboard (campo "Rileva app").
 In orizzontale la griglia viene ridisposta su tre colonne scorrevoli, così una
 dashboard con molti pulsanti resta leggibile invece di rimpicciolirsi.
 
+### Pulsanti più grandi
+
+Un pulsante può occupare più di una cella: nell'editor (pressione prolungata
+in modalità modifica) i due selettori **Larghezza** e **Altezza** dicono
+quante celle prende in orizzontale e in verticale. Serve a dare rilievo a
+quelli che si premono più spesso — un "Registra" alto il doppio si trova al
+buio senza guardare.
+
+L'area occupata deve stare dentro la griglia e non sovrapporsi ad altri
+pulsanti: se non c'è posto il PC rifiuta la modifica e lo dice, invece di
+accavallarli. Per fare spazio si allarga prima la griglia con le barre
+"righe"/"colonne". Trascinando, due pulsanti si scambiano di posto solo se
+hanno la stessa forma.
+
 ### Colori e icona dell'applicazione
 
 I pulsanti si colorano con una gamma di otto tinte — Corallo (l'accento),
@@ -88,9 +102,11 @@ bianca sopra e per non litigare fra loro quando la griglia è piena.
 
 Quando una dashboard è associata a un'applicazione del PC (perché contiene un
 pulsante "Avvia applicazione" o perché ha un "Rileva app" che la identifica),
-i suoi pulsanti lasciano intravedere **l'icona vera di quell'applicazione**
-in filigrana: il colore resta in primo piano, l'icona si riconosce, e si
-capisce a colpo d'occhio su quale dashboard ci si trova.
+**l'icona vera di quell'applicazione** compare grande al centro dello
+schermo, dietro la griglia, con un alone di luce che la stacca dal fondo. I
+pulsanti sono leggermente traslucidi, così l'icona si intravede attraverso
+di loro senza togliere leggibilità alle etichette: si capisce a colpo
+d'occhio su quale dashboard ci si trova.
 
 L'icona arriva dal PC, non da internet: su Linux dai file `.desktop` e dai
 temi di icone installati (l'SVG viene convertito in PNG quando serve), su

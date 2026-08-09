@@ -200,6 +200,8 @@ class ButtonSpec {
     this.text,
     this.appId,
     this.appName,
+    this.rowSpan = 1,
+    this.colSpan = 1,
   });
 
   final String id;
@@ -215,6 +217,11 @@ class ButtonSpec {
   final String? text;
   final String? appId;
   final String? appName;
+
+  /// Quante celle occupa il pulsante: 1x1 come tutti gli altri, oppure piu'
+  /// grande per dare rilievo a quelli che si premono spesso.
+  final int rowSpan;
+  final int colSpan;
 
   bool get isRecord => kind == 'record';
   bool get isAiCommand => kind == 'ai_command';
@@ -282,6 +289,8 @@ class ButtonSpec {
       text: json['text'] as String?,
       appId: json['app_id'] as String?,
       appName: json['app_name'] as String?,
+      rowSpan: json['row_span'] as int? ?? 1,
+      colSpan: json['col_span'] as int? ?? 1,
     );
   }
 }
@@ -426,9 +435,26 @@ class Dashboard {
     );
   }
 
+  /// Pulsante che ha l'angolo in alto a sinistra in questa cella: e' qui
+  /// che viene disegnato (vedi [covering] per le celle che occupa oltre la
+  /// prima).
   ButtonSpec? at(int row, int col) {
     for (final b in buttons) {
       if (b.row == row && b.col == col) return b;
+    }
+    return null;
+  }
+
+  /// Pulsante che occupa questa cella, anche se il suo angolo e' altrove:
+  /// serve a non disegnare una cella vuota sotto un pulsante esteso.
+  ButtonSpec? covering(int row, int col) {
+    for (final b in buttons) {
+      if (row >= b.row &&
+          row < b.row + b.rowSpan &&
+          col >= b.col &&
+          col < b.col + b.colSpan) {
+        return b;
+      }
     }
     return null;
   }

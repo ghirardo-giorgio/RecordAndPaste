@@ -105,6 +105,10 @@ class Strings {
   /// e icona
   String editButtonTitle(String label) =>
       _it ? 'Modifica "$label"' : 'Edit "$label"';
+  /// editor del pulsante: quante celle occupa, per farne uno piu' grande
+  String get sizeLabel => _it ? 'Dimensione (celle)' : 'Size (cells)';
+  String get widthLabel => _it ? 'Larghezza' : 'Width';
+  String get heightLabel => _it ? 'Altezza' : 'Height';
   String get moveLeft => _it ? 'Sposta a sinistra' : 'Move left';
   String get moveRight => _it ? 'Sposta a destra' : 'Move right';
   String get duplicate => _it ? 'Duplica' : 'Duplicate';

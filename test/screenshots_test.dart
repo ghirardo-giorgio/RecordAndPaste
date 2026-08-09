@@ -220,7 +220,7 @@ void main() {
     );
   });
 
-  testWidgets('griglia con l\'icona dell\'applicazione in filigrana', (
+  testWidgets('pulsanti di dimensioni diverse sopra l\'icona della app', (
     tester,
   ) async {
     final client = _connectedClient(
@@ -228,28 +228,34 @@ void main() {
         Dashboard.fromJson({
           'id': 'brave',
           'name': 'Brave',
-          'rows': 2,
-          'cols': 2,
-          // il demone risolve l'app della dashboard e il telefono ne chiede
-          // l'icona (vedi _appIconFor)
+          'rows': 3,
+          'cols': 3,
           'app_id': '/usr/share/applications/brave-browser.desktop',
           'buttons': [
-            {'id': 'record', 'label': 'Registra', 'kind': 'record',
-             'row': 0, 'col': 0},
+            // largo il doppio: il pulsante che si preme piu' spesso
             {'id': 'nuovascheda', 'label': 'Nuova scheda', 'kind': 'keys',
-             'combo': 'ctrl+t', 'row': 0, 'col': 1, 'color': '#2681a8',
-             'icon': 'open_in_new'},
-            {'id': 'chiudi', 'label': 'Chiudi scheda', 'kind': 'keys',
-             'combo': 'ctrl+w', 'row': 1, 'col': 0, 'color': '#e1543f',
+             'combo': 'ctrl+t', 'row': 0, 'col': 0, 'col_span': 2,
+             'color': '#2681a8', 'icon': 'open_in_new'},
+            {'id': 'chiudi', 'label': 'Chiudi', 'kind': 'keys',
+             'combo': 'ctrl+w', 'row': 0, 'col': 2, 'color': '#e1543f',
              'icon': 'close'},
+            // alto il doppio
+            {'id': 'record', 'label': 'Registra', 'kind': 'record',
+             'row': 1, 'col': 0, 'row_span': 2},
             {'id': 'cerca', 'label': 'Cerca', 'kind': 'keys',
              'combo': 'ctrl+f', 'row': 1, 'col': 1, 'color': '#7c8c3c',
              'icon': 'search'},
+            {'id': 'ricarica', 'label': 'Ricarica', 'kind': 'keys',
+             'combo': 'f5', 'row': 1, 'col': 2, 'color': '#c8891e',
+             'icon': 'refresh'},
+            // largo due celle in fondo
+            {'id': 'incollaultimo', 'label': 'Incolla ultimo',
+             'kind': 'paste_last', 'row': 2, 'col': 1, 'col_span': 2,
+             'color': '#5d6a75', 'icon': 'content_paste'},
           ],
         }),
       ],
     );
-    // l'icona vera di un'applicazione installata, come la manda il demone
     client.appIcons['/usr/share/applications/brave-browser.desktop'] =
         Uint8List.fromList(
           base64Decode(
@@ -259,7 +265,7 @@ void main() {
 
     await _pumpHome(tester, client);
     // nei widget test le immagini non si decodificano da sole: senza questo
-    // lo screenshot mostrerebbe le celle a tinta piena (nell'app vera il
+    // lo screenshot mostrerebbe lo sfondo vuoto (nell'app vera il
     // caricamento asincrono avviene e basta)
     await _precacheAppIcons(tester, client);
 

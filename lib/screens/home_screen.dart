@@ -17,6 +17,15 @@ import 'settings_screen.dart';
 /// la griglia.
 const _maxMediaPlayerButtons = 5;
 
+/// Quanto sono coprenti i pulsanti: sotto la griglia c'e' l'icona
+/// dell'applicazione della dashboard (vedi _buildDashboardBackdrop), che
+/// deve restare intuibile senza che le etichette perdano leggibilita'.
+const _cellOpacity = 0.82;
+
+/// Massima estensione di un pulsante in celle: stesso limite di
+/// BUTTON_MAX_SPAN in daemon.py, che e' comunque l'ultima parola.
+const _maxButtonSpan = 8;
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.client, required this.locale});
 
@@ -1242,22 +1251,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Column(
               children: [
-                for (var row = 0; row < dashboard.rows; row++)
-                  Expanded(
-                    child: Row(
-                      children: [
-                        for (var col = 0; col < dashboard.cols; col++)
-                          Expanded(
-                            child: _buildCell(
-                              dashboard,
-                              row,
-                              col,
-                              dashboard.at(row, col),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                Expanded(child: _buildGrid(dashboard)),
                 if (_editMode) _buildRowResizeBar(dashboard),
               ],
             ),
@@ -1265,6 +1259,43 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_editMode) _buildColResizeBar(dashboard),
         ],
       ),
+    );
+  }
+
+  /// La griglia vera e propria. Non e' una tabella di righe e colonne: ogni
+  /// pulsante viene posizionato e dimensionato sulla misura della cella,
+  /// perche' puo' occuparne piu' d'una (vedi [ButtonSpec.rowSpan]). Le celle
+  /// libere restano disegnate una per una, cosi' in modalita' modifica si
+  /// puo' toccare o trascinare esattamente il posto voluto.
+  Widget _buildGrid(Dashboard dashboard) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = constraints.maxWidth / dashboard.cols;
+        final cellHeight = constraints.maxHeight / dashboard.rows;
+        return Stack(
+          children: [
+            _buildDashboardBackdrop(dashboard),
+            for (var row = 0; row < dashboard.rows; row++)
+              for (var col = 0; col < dashboard.cols; col++)
+                if (dashboard.covering(row, col) == null)
+                  Positioned(
+                    left: col * cellWidth,
+                    top: row * cellHeight,
+                    width: cellWidth,
+                    height: cellHeight,
+                    child: _buildCell(dashboard, row, col, null),
+                  ),
+            for (final button in dashboard.buttons)
+              Positioned(
+                left: button.col * cellWidth,
+                top: button.row * cellHeight,
+                width: cellWidth * button.colSpan,
+                height: cellHeight * button.rowSpan,
+                child: _buildCell(dashboard, button.row, button.col, button),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -1677,6 +1708,57 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Sfondo della dashboard: l'icona dell'applicazione a cui e' dedicata,
+  /// grande al centro dello schermo, con un alone di luce che la stacca dal
+  /// fondo nero. Sta sotto la griglia e si intravede appena fra un pulsante
+  /// e l'altro — deve abbellire, non competere con le etichette.
+  Widget _buildDashboardBackdrop(Dashboard dashboard) {
+    final icon = _appIconFor(dashboard.appId);
+    if (icon == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: FractionallySizedBox(
+            widthFactor: 0.62,
+            heightFactor: 0.62,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // alone: un bagliore diffuso del colore dominante non si puo'
+                // calcolare senza decodificare l'immagine, ma un bianco molto
+                // tenue sotto l'icona da' lo stesso effetto di luce diffusa
+                // su qualunque logo
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.22),
+                        Colors.white.withValues(alpha: 0.08),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
+                    ),
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+                Opacity(
+                  opacity: 0.62,
+                  child: Image.memory(
+                    icon,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    gaplessPlayback: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Icona dell'applicazione da mostrare dietro un pulsante, chiedendola al
   /// PC la prima volta che serve. `null` finche' non e' arrivata, o per
   /// sempre se quell'app non ne ha una: in quel caso il pulsante resta a
@@ -1707,9 +1789,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ? Color.lerp(baseColor, Colors.white, 0.35)!
         : baseColor;
     final onCellColor = contrastingOn(cellColor);
-    // il pulsante lascia intravedere l'icona dell'applicazione: la sua se
-    // avvia un'app, altrimenti quella della dashboard in cui si trova
-    final appIcon = _appIconFor(button.appId ?? dashboard.appId);
 
     final cell = GestureDetector(
       onTap: () => _handleCellTap(dashboard, row, col, button),
@@ -1717,35 +1796,15 @@ class _HomeScreenState extends State<HomeScreen> {
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
-          if (appIcon != null)
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.75,
-                    heightFactor: 0.75,
-                    child: Image.memory(
-                      appIcon,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium,
-                      gaplessPlayback: true,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             margin: const EdgeInsets.all(2),
             width: double.infinity,
             height: double.infinity,
-            // velo, non tinta piena, quando c'e' un'icona sotto: il colore
-            // resta riconoscibile e l'etichetta leggibile, l'icona si
-            // intravede
-            color: appIcon == null
-                ? cellColor
-                : cellColor.withValues(alpha: 0.85),
+            // velo, non tinta piena: sotto la griglia c'e' l'icona
+            // dell'applicazione (vedi _buildDashboardBackdrop), che deve
+            // restare intuibile senza rendere illeggibili le etichette
+            color: cellColor.withValues(alpha: _cellOpacity),
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -1801,9 +1860,45 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Selettore "meno/piu'" per quante celle occupa un pulsante. Il limite
+  /// superiore e' lo stesso del demone (BUTTON_MAX_SPAN): oltre, sarebbe
+  /// comunque lui a rifiutare.
+  Widget _spanStepper({
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.remove_circle_outline),
+              onPressed: value > 1 ? () => onChanged(value - 1) : null,
+            ),
+            Text('$value', style: const TextStyle(fontSize: 16)),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: value < _maxButtonSpan
+                  ? () => onChanged(value + 1)
+                  : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Future<void> _showButtonStyleDialog(ButtonSpec button) async {
     String? selectedColor = button.color;
     String? selectedIcon = button.icon;
+    int rowSpan = button.rowSpan;
+    int colSpan = button.colSpan;
     // l'azione e' modificabile solo per i tipi che ne hanno una scritta:
     // "launch" (l'applicazione si sceglie dall'elenco) e i microfoni non
     // passano di qui
@@ -1873,6 +1968,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(_s.sizeLabel),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _spanStepper(
+                        label: _s.widthLabel,
+                        value: colSpan,
+                        onChanged: (v) => setDialogState(() => colSpan = v),
+                      ),
+                    ),
+                    Expanded(
+                      child: _spanStepper(
+                        label: _s.heightLabel,
+                        value: rowSpan,
+                        onChanged: (v) => setDialogState(() => rowSpan = v),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1956,6 +2074,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   combos: combosController.text,
                   delay: delayController.text,
                   text: textController.text,
+                  rowSpan: rowSpan,
+                  colSpan: colSpan,
                 );
                 widget.client.setButtonStyle(
                   button.id,
@@ -1984,6 +2104,8 @@ class _HomeScreenState extends State<HomeScreen> {
     required String combos,
     required String delay,
     required String text,
+    required int rowSpan,
+    required int colSpan,
   }) {
     final newLabel = label.trim();
     final changedLabel = newLabel.isNotEmpty && newLabel != button.label;
@@ -2014,7 +2136,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (text.trim().isNotEmpty && text != button.text) newText = text;
     }
 
+    final changedSize =
+        rowSpan != button.rowSpan || colSpan != button.colSpan;
+
     if (!changedLabel &&
+        !changedSize &&
         newCombo == null &&
         newCombos == null &&
         newDelay == null &&
@@ -2028,6 +2154,10 @@ class _HomeScreenState extends State<HomeScreen> {
       combos: newCombos,
       delayMs: newDelay,
       text: newText,
+      // le due dimensioni viaggiano insieme: il demone le valida come
+      // un'unica area, e mandarne una sola gli farebbe assumere l'altra
+      rowSpan: changedSize ? rowSpan : null,
+      colSpan: changedSize ? colSpan : null,
     );
   }
 
