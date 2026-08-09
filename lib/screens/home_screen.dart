@@ -795,7 +795,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Icon(icon, size: 20),
           const SizedBox(width: 12),
-          Text(label),
+          // su schermi stretti le voci lunghe ("Incolla ultima dettatura")
+          // non devono sfondare la riga del menu
+          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -1273,6 +1275,11 @@ class _HomeScreenState extends State<HomeScreen> {
         final cellWidth = constraints.maxWidth / dashboard.cols;
         final cellHeight = constraints.maxHeight / dashboard.rows;
         return Stack(
+          // senza questo lo Stack si dimensionerebbe sui figli NON
+          // posizionati — che qui non ci sono — collassando a zero: le celle
+          // resterebbero visibili (disegnate oltre i limiti) ma fuori
+          // dall'area che riceve i tocchi
+          fit: StackFit.expand,
           children: [
             _buildDashboardBackdrop(dashboard),
             for (var row = 0; row < dashboard.rows; row++)
