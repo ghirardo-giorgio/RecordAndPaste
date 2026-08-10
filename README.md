@@ -108,11 +108,16 @@ pulsanti sono leggermente traslucidi, così l'icona si intravede attraverso
 di loro senza togliere leggibilità alle etichette: si capisce a colpo
 d'occhio su quale dashboard ci si trova.
 
-L'icona arriva dal PC, non da internet: su Linux dai file `.desktop` e dai
-temi di icone installati (l'SVG viene convertito in PNG quando serve), su
-macOS dall'`.icns` dentro il bundle dell'app, su Windows dall'eseguibile o
-dagli asset del pacchetto. Se un'applicazione non ne ha una, i pulsanti
-restano a tinta piena.
+Anche i pulsanti "Avvia applicazione" mostrano l'icona vera dell'app al
+posto del simbolo generico, così si riconoscono a colpo d'occhio. Se
+preferisci un'icona diversa la scegli dall'editor: la tua scelta vince
+sempre su quella automatica.
+
+Le icone arrivano dal PC, non da internet: su Linux dai file `.desktop` e
+dai temi di icone installati (l'SVG viene convertito in PNG quando serve),
+su macOS dall'`.icns` dentro il bundle dell'app, su Windows dall'eseguibile
+o dagli asset del pacchetto. Se un'applicazione non ne ha una, si ripiega
+sul simbolo generico.
 
 ### Stato della dettatura
 
@@ -138,7 +143,7 @@ che l'ha avviata può fermarla, così il testo non finisce nel canale sbagliato
 | **Scorciatoia** (`keys`) | Simula una combinazione di tasti, es. `ctrl+shift+z`. |
 | **Macro** (`macro`) | Esegue in sequenza più combinazioni, con una pausa configurabile fra un passo e l'altro (max 20 passi). Se un passo fallisce la sequenza si ferma. |
 | **Testo** (`text`) | Incolla uno snippet fisso: firme, prompt ricorrenti, percorsi lunghi (max 5000 caratteri). |
-| **Avvia applicazione** (`launch`) | Avvia sul PC un'applicazione installata, scelta da un elenco. |
+| **Avvia applicazione** (`launch`) | Avvia sul PC un'applicazione installata, scelta da un elenco. Il pulsante mostra **l'icona vera dell'applicazione** invece di un simbolo generico. |
 | **Incolla ultimo** (`paste_last`) | Re-incolla l'ultima dettatura senza registrarne una nuova: serve quando il cursore non era dove doveva essere e il testo è finito nel posto sbagliato. |
 
 L'incolla è adattivo: nei terminali il demone usa `Ctrl+Shift+V` invece di

@@ -245,9 +245,10 @@ void main() {
             {'id': 'cerca', 'label': 'Cerca', 'kind': 'keys',
              'combo': 'ctrl+f', 'row': 1, 'col': 1, 'color': '#7c8c3c',
              'icon': 'search'},
-            {'id': 'ricarica', 'label': 'Ricarica', 'kind': 'keys',
-             'combo': 'f5', 'row': 1, 'col': 2, 'color': '#c8891e',
-             'icon': 'refresh'},
+            // avvia applicazione: mostra l'icona vera dell'app, non il razzo
+            {'id': 'apribrave', 'label': 'Apri Brave', 'kind': 'launch',
+             'app_id': '/usr/share/applications/brave-browser.desktop',
+             'app_name': 'Brave', 'row': 1, 'col': 2, 'color': '#c8891e'},
             // largo due celle in fondo
             {'id': 'incollaultimo', 'label': 'Incolla ultimo',
              'kind': 'paste_last', 'row': 2, 'col': 1, 'col_span': 2,

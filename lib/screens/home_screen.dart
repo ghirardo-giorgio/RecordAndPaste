@@ -1784,6 +1784,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return client.appIcons[appId];
   }
 
+  /// Icona mostrata dentro un pulsante. Per chi avvia un'applicazione e'
+  /// quella vera dell'app, che si riconosce a colpo d'occhio meglio di
+  /// qualunque simbolo generico; si ripiega sull'icona a razzo finche' non
+  /// e' arrivata dal PC, se quell'applicazione non ne ha una, o se e' stata
+  /// scelta un'icona a mano (in quel caso vince la scelta dell'utente).
+  Widget _buttonIcon(ButtonSpec button, Color color) {
+    if (button.isLaunch && button.icon == null) {
+      final appIcon = _appIconFor(button.appId);
+      if (appIcon != null) {
+        return Image.memory(
+          appIcon,
+          width: 40,
+          height: 40,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+        );
+      }
+    }
+    return Icon(button.displayIcon, size: 36, color: color);
+  }
+
   Widget _buildKeysCell(
     Dashboard dashboard,
     int row,
@@ -1818,7 +1840,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(button.displayIcon, size: 36, color: onCellColor),
+                    _buttonIcon(button, onCellColor),
                     const SizedBox(height: 8),
                     Text(
                       button.label,
