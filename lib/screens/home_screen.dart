@@ -1648,7 +1648,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // anche un microfono si rinomina e si ingrandisce: l'editor si apre
       // con la stessa pressione prolungata degli altri pulsanti, ma senza
       // colore e icona (il suo aspetto segue lo stato della registrazione)
-      onLongPress: _editMode ? () => _showButtonStyleDialog(button) : null,
+      onLongPress: _editMode
+          ? () => _showButtonStyleDialog(dashboard, button)
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
@@ -1825,7 +1827,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final cell = GestureDetector(
       onTap: () => _handleCellTap(dashboard, row, col, button),
-      onLongPress: _editMode ? () => _showButtonStyleDialog(button) : null,
+      onLongPress: _editMode
+          ? () => _showButtonStyleDialog(dashboard, button)
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
@@ -1893,12 +1897,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Di quante celle puo' crescere il pulsante in una direzione prima di
+  /// incontrare un altro pulsante o il bordo della griglia. Serve a non far
+  /// scegliere una dimensione che il PC rifiuterebbe: il "piu'" si spegne
+  /// quando lo spazio finisce, invece di lasciar provare e poi dare errore.
+  int _maxSpan(
+    Dashboard dashboard,
+    ButtonSpec button, {
+    required bool horizontal,
+    required int otherSpan,
+  }) {
+    var span = 1;
+    while (span < _maxButtonSpan) {
+      final next = (horizontal ? button.col : button.row) + span;
+      if (next >= (horizontal ? dashboard.cols : dashboard.rows)) break;
+      final from = horizontal ? button.row : button.col;
+      var free = true;
+      for (var i = from; i < from + otherSpan; i++) {
+        final occupant = horizontal
+            ? dashboard.covering(i, next)
+            : dashboard.covering(next, i);
+        if (occupant != null && occupant.id != button.id) {
+          free = false;
+          break;
+        }
+      }
+      if (!free) break;
+      span++;
+    }
+    return span;
+  }
+
   /// Selettore "meno/piu'" per quante celle occupa un pulsante. Il limite
   /// superiore e' lo stesso del demone (BUTTON_MAX_SPAN): oltre, sarebbe
   /// comunque lui a rifiutare.
   Widget _spanStepper({
     required String label,
     required int value,
+    required int max,
     required ValueChanged<int> onChanged,
   }) {
     return Column(
@@ -1917,9 +1953,7 @@ class _HomeScreenState extends State<HomeScreen> {
             IconButton(
               visualDensity: VisualDensity.compact,
               icon: const Icon(Icons.add_circle_outline),
-              onPressed: value < _maxButtonSpan
-                  ? () => onChanged(value + 1)
-                  : null,
+              onPressed: value < max ? () => onChanged(value + 1) : null,
             ),
           ],
         ),
@@ -1927,7 +1961,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _showButtonStyleDialog(ButtonSpec button) async {
+  Future<void> _showButtonStyleDialog(
+    Dashboard dashboard,
+    ButtonSpec button,
+  ) async {
     String? selectedColor = button.color;
     String? selectedIcon = button.icon;
     int rowSpan = button.rowSpan;
@@ -2006,23 +2043,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(_s.sizeLabel),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _spanStepper(
-                        label: _s.widthLabel,
-                        value: colSpan,
-                        onChanged: (v) => setDialogState(() => colSpan = v),
-                      ),
-                    ),
-                    Expanded(
-                      child: _spanStepper(
-                        label: _s.heightLabel,
-                        value: rowSpan,
-                        onChanged: (v) => setDialogState(() => rowSpan = v),
-                      ),
-                    ),
-                  ],
+                Builder(
+                  builder: (context) {
+                    // lo spazio libero dipende dall'altra dimensione: si
+                    // ricalcola ad ogni tocco, non una volta sola
+                    final maxCols = _maxSpan(
+                      dashboard,
+                      button,
+                      horizontal: true,
+                      otherSpan: rowSpan,
+                    );
+                    final maxRows = _maxSpan(
+                      dashboard,
+                      button,
+                      horizontal: false,
+                      otherSpan: colSpan,
+                    );
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _spanStepper(
+                                label: _s.widthLabel,
+                                value: colSpan,
+                                max: maxCols,
+                                onChanged: (v) =>
+                                    setDialogState(() => colSpan = v),
+                              ),
+                            ),
+                            Expanded(
+                              child: _spanStepper(
+                                label: _s.heightLabel,
+                                value: rowSpan,
+                                max: maxRows,
+                                onChanged: (v) =>
+                                    setDialogState(() => rowSpan = v),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // senza celle libere attorno non c'e' verso di
+                        // ingrandirlo: meglio dirlo qui che far scoprire il
+                        // rifiuto dopo aver premuto Salva
+                        if (maxCols == 1 && maxRows == 1)
+                          Text(
+                            _s.noRoomToGrow,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
                 if (!button.isMic) ...[
                 const SizedBox(height: 16),

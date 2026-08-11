@@ -107,6 +107,13 @@ class Strings {
       _it ? 'Modifica "$label"' : 'Edit "$label"';
   /// editor del pulsante: quante celle occupa, per farne uno piu' grande
   String get sizeLabel => _it ? 'Dimensione (celle)' : 'Size (cells)';
+  /// mostrato quando il pulsante e' circondato da vicini o dal bordo: senza
+  /// una cella libera accanto non c'e' modo di ingrandirlo
+  String get noRoomToGrow => _it
+      ? 'Nessuna cella libera accanto: aggiungi una riga o una colonna con '
+            'le barre ai bordi, oppure sposta prima i pulsanti vicini.'
+      : 'No free cell next to it: add a row or a column with the bars at '
+            'the edges, or move the neighbouring buttons first.';
   String get widthLabel => _it ? 'Larghezza' : 'Width';
   String get heightLabel => _it ? 'Altezza' : 'Height';
   String get moveLeft => _it ? 'Sposta a sinistra' : 'Move left';
