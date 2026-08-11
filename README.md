@@ -81,9 +81,11 @@ dashboard con molti pulsanti resta leggibile invece di rimpicciolirsi.
 
 ### Pulsanti più grandi
 
-Un pulsante può occupare più di una cella: nell'editor (pressione prolungata
-in modalità modifica) i due selettori **Larghezza** e **Altezza** dicono
-quante celle prende in orizzontale e in verticale. Serve a dare rilievo a
+Un pulsante può occupare più di una cella. Il percorso è: **matita** in alto
+a sinistra per entrare in modalità modifica, poi **tieni premuto** sul
+pulsante finché non si apre "Modifica <nome>", e lì i due selettori
+**Larghezza** e **Altezza** dicono quante celle prende in orizzontale e in
+verticale. Vale per ogni tipo di pulsante, microfoni compresi. Serve a dare rilievo a
 quelli che si premono più spesso — un "Registra" alto il doppio si trova al
 buio senza guardare.
 

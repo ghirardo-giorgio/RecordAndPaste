@@ -1645,6 +1645,10 @@ class _HomeScreenState extends State<HomeScreen> {
       onTapCancel: (holdToTalk && !locked)
           ? () => client.pressButtonUp(button.id)
           : null,
+      // anche un microfono si rinomina e si ingrandisce: l'editor si apre
+      // con la stessa pressione prolungata degli altri pulsanti, ma senza
+      // colore e icona (il suo aspetto segue lo stato della registrazione)
+      onLongPress: _editMode ? () => _showButtonStyleDialog(button) : null,
       behavior: HitTestBehavior.opaque,
       child: Stack(
         children: [
@@ -2020,6 +2024,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
+                if (!button.isMic) ...[
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -2085,6 +2090,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                ],
               ],
             ),
             ),
@@ -2106,11 +2112,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   rowSpan: rowSpan,
                   colSpan: colSpan,
                 );
-                widget.client.setButtonStyle(
-                  button.id,
-                  color: selectedColor,
-                  icon: selectedIcon,
-                );
+                if (!button.isMic) {
+                  widget.client.setButtonStyle(
+                    button.id,
+                    color: selectedColor,
+                    icon: selectedIcon,
+                  );
+                }
                 Navigator.of(context).pop();
               },
               child: Text(_s.save),

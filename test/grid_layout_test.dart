@@ -69,4 +69,48 @@ void main() {
     expect(find.byType(AlertDialog), findsOneWidget,
         reason: 'il tocco deve aprire il dialogo di creazione');
   });
+
+  testWidgets('anche un microfono si ridimensiona dalla pressione prolungata',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    _stubWakelock();
+    tester.view.physicalSize = const Size(1080, 2160);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final client = StenoClient();
+    client.status = ConnectionStatus.connected;
+    client.daemonState = DaemonState.idle;
+    client.dashboards = [
+      Dashboard.fromJson({
+        'id': 'default', 'name': 'Stenografa', 'rows': 2, 'cols': 1,
+        'buttons': [
+          {'id': 'record', 'label': 'Registra', 'kind': 'record',
+           'row': 0, 'col': 0},
+        ],
+      }),
+    ];
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomeScreen(client: client, locale: LocaleService()),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pump();
+    await tester.longPress(find.text('Tocca per registrare'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget,
+        reason: 'l\'editor deve aprirsi anche sui pulsanti microfono');
+    expect(find.text('Larghezza'), findsOneWidget,
+        reason: 'i selettori di dimensione devono esserci');
+    // colore e icona non si applicano a un microfono: il suo aspetto segue
+    // lo stato della registrazione
+    expect(find.text('Colore'), findsNothing);
+  });
 }
