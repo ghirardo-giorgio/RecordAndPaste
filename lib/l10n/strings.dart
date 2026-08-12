@@ -143,6 +143,9 @@ class Strings {
   String get tapToRecord => _it ? 'Tocca per registrare' : 'Tap to record';
   /// spunta sul pulsante di registrazione: a incolla avvenuto il PC preme
   /// Invio, cosi' in chat il messaggio dettato parte da solo
+  /// scritta accanto alla spunta, dentro il pulsante: deve stare in poco
+  /// spazio e dire cosa succede a dettatura finita
+  String get autoEnterLabel => _it ? 'Invio' : 'Send';
   String get autoEnterOn => _it
       ? 'Invio automatico attivo: il messaggio parte da solo'
       : 'Auto-send on: the message is sent by itself';

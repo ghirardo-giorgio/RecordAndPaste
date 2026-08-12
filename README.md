@@ -154,8 +154,8 @@ appunti e il PC lo segnala.
 
 ### Invio automatico
 
-Sul pulsante di registrazione c'è una **spunta** in basso a destra: quando è
-accesa, dopo aver incollato il testo dettato il PC preme **Invio**. In una
+Sul pulsante di registrazione c'è una **spunta "Invio"** in basso a destra:
+quando è accesa, dopo aver incollato il testo dettato il PC preme **Invio**. In una
 chat il messaggio parte da solo — detti e via, senza toccare la tastiera.
 
 Si accende e si spegne con un tocco sulla spunta, senza entrare in modalità

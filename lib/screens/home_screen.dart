@@ -1707,16 +1707,39 @@ class _HomeScreenState extends State<HomeScreen> {
                   message: button.autoEnter
                       ? _s.autoEnterOn
                       : _s.autoEnterOff,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      button.autoEnter
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      color: button.autoEnter
-                          ? Colors.white
-                          : Colors.white38,
-                      size: 22,
+                  child: Container(
+                    // fondo scuro: la spunta sta sopra il colore della
+                    // cella, che cambia con lo stato della registrazione
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(8, 2, 4, 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // l'etichetta dice cosa fa la spunta: il tooltip da
+                        // solo richiederebbe di tenerla premuta per scoprirlo
+                        Text(
+                          _s.autoEnterLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: button.autoEnter
+                                ? Colors.white
+                                : Colors.white38,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          button.autoEnter
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          color: button.autoEnter
+                              ? Colors.white
+                              : Colors.white38,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
