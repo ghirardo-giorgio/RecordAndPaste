@@ -1689,6 +1689,39 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          // invio automatico: la spunta sta sul pulsante e non nelle
+          // impostazioni perche' si accende e si spegne di continuo — in
+          // chat serve, in un editor no. Solo sulla dettatura normale: il
+          // comando vocale IA non incolla testo.
+          if (button.isRecord && !locked)
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () => client.editButton(
+                  button.id,
+                  autoEnter: !button.autoEnter,
+                ),
+                behavior: HitTestBehavior.opaque,
+                child: Tooltip(
+                  message: button.autoEnter
+                      ? _s.autoEnterOn
+                      : _s.autoEnterOff,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      button.autoEnter
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      color: button.autoEnter
+                          ? Colors.white
+                          : Colors.white38,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (_editMode)
             Positioned(
               top: 6,

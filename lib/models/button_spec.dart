@@ -202,6 +202,7 @@ class ButtonSpec {
     this.appName,
     this.rowSpan = 1,
     this.colSpan = 1,
+    this.autoEnter = false,
   });
 
   final String id;
@@ -222,6 +223,10 @@ class ButtonSpec {
   /// grande per dare rilievo a quelli che si premono spesso.
   final int rowSpan;
   final int colSpan;
+
+  /// Solo per i pulsanti "record": a incolla avvenuto il PC preme Invio, per
+  /// far partire da solo il messaggio dettato in una chat.
+  final bool autoEnter;
 
   bool get isRecord => kind == 'record';
   bool get isAiCommand => kind == 'ai_command';
@@ -291,6 +296,7 @@ class ButtonSpec {
       appName: json['app_name'] as String?,
       rowSpan: json['row_span'] as int? ?? 1,
       colSpan: json['col_span'] as int? ?? 1,
+      autoEnter: json['auto_enter'] as bool? ?? false,
     );
   }
 }

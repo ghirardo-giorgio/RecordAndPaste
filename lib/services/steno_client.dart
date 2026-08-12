@@ -315,6 +315,7 @@ class StenoClient extends ChangeNotifier {
     String? text,
     int? rowSpan,
     int? colSpan,
+    bool? autoEnter,
   }) {
     final cmd = <String, dynamic>{'cmd': 'edit_button', 'id': id};
     if (label != null) cmd['label'] = label;
@@ -324,6 +325,7 @@ class StenoClient extends ChangeNotifier {
     if (text != null) cmd['text'] = text;
     if (rowSpan != null) cmd['row_span'] = rowSpan;
     if (colSpan != null) cmd['col_span'] = colSpan;
+    if (autoEnter != null) cmd['auto_enter'] = autoEnter;
     _sendCmd(cmd);
   }
 

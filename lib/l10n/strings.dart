@@ -141,6 +141,14 @@ class Strings {
   String get transcribing => _it ? 'Trascrizione in corso…' : 'Transcribing…';
   String get loadingModel => _it ? 'Carico il modello…' : 'Loading model…';
   String get tapToRecord => _it ? 'Tocca per registrare' : 'Tap to record';
+  /// spunta sul pulsante di registrazione: a incolla avvenuto il PC preme
+  /// Invio, cosi' in chat il messaggio dettato parte da solo
+  String get autoEnterOn => _it
+      ? 'Invio automatico attivo: il messaggio parte da solo'
+      : 'Auto-send on: the message is sent by itself';
+  String get autoEnterOff => _it
+      ? 'Invio automatico spento: tocca per attivarlo'
+      : 'Auto-send off: tap to turn it on';
   // --- controlli dei video in riproduzione sul PC ---
   String pauseMediaTooltip(String what) =>
       _it ? 'Metti in pausa: $what' : 'Pause: $what';

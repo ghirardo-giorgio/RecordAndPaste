@@ -152,6 +152,17 @@ L'incolla è adattivo: nei terminali il demone usa `Ctrl+Shift+V` invece di
 `Ctrl+V`. Se l'incolla automatico non riesce, il testo resta comunque negli
 appunti e il PC lo segnala.
 
+### Invio automatico
+
+Sul pulsante di registrazione c'è una **spunta** in basso a destra: quando è
+accesa, dopo aver incollato il testo dettato il PC preme **Invio**. In una
+chat il messaggio parte da solo — detti e via, senza toccare la tastiera.
+
+Si accende e si spegne con un tocco sulla spunta, senza entrare in modalità
+modifica: è una scelta che cambia spesso, in chat serve e in un editor no.
+Vale solo per quel pulsante e solo per la dettatura normale: il comando
+vocale IA non incolla testo, e "Incolla ultimo" non preme mai Invio.
+
 ### Push-to-talk
 
 Di default i pulsanti microfono funzionano da interruttore (tocca per
