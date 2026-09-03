@@ -24,6 +24,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Serve per sentire la frase con cui avvii e fermi la dettatura. Quello che detti viene registrato dal PC, non dal telefono.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Serve a riconoscere la frase di attivazione scelta da te, per avviare e fermare la dettatura senza toccare lo schermo.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>

@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Necessario per la connessione TCP al demone Stenografa sulla LAN -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Solo per sentire la frase di attivazione con l'app aperta (vedi
+         WakeWordService): la dettatura vera usa il microfono del PC -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="record_and_paste"
         android:name="${applicationName}"
@@ -42,6 +45,15 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Senza questi, da Android 11 in poi il riconoscimento vocale
+             risulta "non disponibile" anche quando c'e' (vedi
+             speech_to_text) -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
         </intent>
     </queries>
 </manifest>

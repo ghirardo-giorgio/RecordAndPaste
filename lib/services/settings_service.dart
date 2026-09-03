@@ -14,6 +14,8 @@ class SettingsService {
   static const _keyPushToTalk = 'push_to_talk';
   static const _keyHaptics = 'haptic_feedback';
   static const _keyPinnedCert = 'pinned_cert_fingerprint';
+  static const _keyPhoneWakeWord = 'phone_wake_word';
+  static const _keySilenceBeeps = 'wake_silence_beeps';
 
   Future<ConnectionSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -75,6 +77,36 @@ class SettingsService {
   Future<void> saveHapticFeedback(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyHaptics, value);
+  }
+
+  /// Se il telefono ascolta le frasi di attivazione con il proprio microfono
+  /// (vedi WakeWordService). E' una preferenza del singolo telefono, distinta
+  /// dall'ascolto sul PC (`wake_word_enabled` nella config del demone): le
+  /// frasi da riconoscere invece sono le stesse, e arrivano dal demone.
+  /// Disattivo di default, come l'ascolto sul PC.
+  Future<bool> loadPhoneWakeWord() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyPhoneWakeWord) ?? false;
+  }
+
+  Future<void> savePhoneWakeWord(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyPhoneWakeWord, value);
+  }
+
+  /// Se silenziare i segnali acustici del riconoscimento vocale mentre si
+  /// aspetta la frase di attivazione. Attivo di default: Android li fa suonare
+  /// a ogni sessione di ascolto, non a ogni dettatura, e senza silenziarli il
+  /// telefono trilla di continuo anche stando zitti. Si puo' spegnere perche'
+  /// il silenzio copre anche l'audio multimediale del telefono.
+  Future<bool> loadSilenceBeeps() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keySilenceBeeps) ?? true;
+  }
+
+  Future<void> saveSilenceBeeps(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keySilenceBeeps, value);
   }
 
   /// Preferenza locale (non sincronizzata col demone): se attiva, l'app

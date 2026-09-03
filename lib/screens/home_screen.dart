@@ -9,6 +9,7 @@ import '../models/daemon_state.dart';
 import '../services/locale_service.dart';
 import '../services/settings_service.dart';
 import '../services/steno_client.dart';
+import '../services/wake_word_service.dart';
 import 'history_screen.dart';
 import 'settings_screen.dart';
 
@@ -57,6 +58,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _followActiveApp = false;
   bool _pushToTalk = false;
   bool _haptics = true;
+  bool _phoneWakeWord = false;
+  /// true mentre la dettatura in corso viene trascritta dal telefono invece
+  /// che dal PC (vedi _phoneShouldTranscribe)
+  bool _dictatingOnPhone = false;
+  /// Ascolto della frase di attivazione col microfono del telefono. E'
+  /// indipendente da quello del PC (config `wake_word_enabled` del demone):
+  /// l'utente puo' tenerne acceso uno, l'altro o entrambi.
+  late final WakeWordService _wakeWord;
   /// ultimo stato del demone gia' "vibrato": serve a far vibrare solo alle
   /// transizioni (inizio/fine registrazione) e non ad ogni notifica
   DaemonState _lastHapticState = DaemonState.unknown;
@@ -79,6 +88,17 @@ class _HomeScreenState extends State<HomeScreen> {
     widget.locale.addListener(_onLocaleChanged);
     widget.locale.load();
     WakelockPlus.enable();
+    _wakeWord = WakeWordService()
+      // le frasi e la lingua sono quelle del demone, lette al momento
+      // dell'uso: cambiarle dalle impostazioni ha effetto subito
+      ..startPhrase = (() => widget.client.wakePhraseStart)
+      ..stopPhrase = (() => widget.client.wakePhraseStop)
+      ..localeId = _recognizerLocale
+      ..dictationInProgress = (() =>
+          widget.client.daemonState == DaemonState.recording)
+      ..onStart = _onWakePhraseStart
+      ..onStop = _onWakePhraseStop;
+    _wakeWord.addListener(_onLocaleChanged);
     _loadAndConnect();
     _loadLocalPreferences();
   }
@@ -88,12 +108,105 @@ class _HomeScreenState extends State<HomeScreen> {
     final follow = await service.loadFollowActiveApp();
     final pushToTalk = await service.loadPushToTalk();
     final haptics = await service.loadHapticFeedback();
+    final phoneWakeWord = await service.loadPhoneWakeWord();
+    final silenceBeeps = await service.loadSilenceBeeps();
     if (!mounted) return;
     setState(() {
       _followActiveApp = follow;
       _pushToTalk = pushToTalk;
       _haptics = haptics;
+      _phoneWakeWord = phoneWakeWord;
     });
+    _wakeWord.silenceBeeps = silenceBeeps;
+    _syncWakeWordListening();
+  }
+
+  /// Lingua da passare al riconoscitore del telefono: quella della dettatura
+  /// scelta sul demone, cosi' la frase viene interpretata come la pronuncia
+  /// l'utente. Con "auto" il telefono non ha una lingua da indovinare, si usa
+  /// quella dell'interfaccia.
+  String _recognizerLocale() {
+    final language = widget.client.dictationLanguage;
+    if (language == 'auto' || language.length != 2) {
+      return widget.locale.language == AppLanguage.it ? 'it_IT' : 'en_US';
+    }
+    return '${language}_${language.toUpperCase()}';
+  }
+
+  /// Accende l'ascolto sul telefono solo se serve davvero: senza connessione
+  /// il comando non arriverebbe da nessuna parte, e tenere aperto il
+  /// microfono a vuoto consumerebbe batteria.
+  void _syncWakeWordListening() {
+    final wanted =
+        _phoneWakeWord &&
+        widget.client.status == ConnectionStatus.connected;
+    if (wanted == _wakeWord.enabled) return;
+    _wakeWord.setEnabled(wanted).then((_) {
+      if (!mounted || !wanted || !_wakeWord.unavailable) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_s.wakeWordPhoneUnavailable),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    });
+  }
+
+  /// Frase di avvio sentita dal telefono: si comporta come un tocco sul
+  /// pulsante microfono della dashboard aperta, cosi' la dettatura eredita il
+  /// vocabolario della dashboard e l'invio automatico del pulsante. Se il
+  /// demone e' gia' occupato non c'e' niente da avviare.
+  void _onWakePhraseStart() {
+    if (!mounted || _daemonBusy) return;
+    final button = _recordButtonForWakeWord();
+    if (button == null) {
+      widget.client.toggleRecordingByVoice();
+      return;
+    }
+    _claimMicSession(button);
+    _pressRecordButton(button, byVoice: true);
+  }
+
+  /// Frase di stop: ferma la dettatura in corso, e solo quella. Preme il
+  /// pulsante che l'ha avviata, perche' e' l'unico che il demone accetta per
+  /// fermarla (vedi [_isMicLocked]).
+  void _onWakePhraseStop() {
+    if (!mounted) return;
+    if (widget.client.daemonState != DaemonState.recording) return;
+    if (_dictatingOnPhone) {
+      // a trascrivere e' il telefono: fermare vuol dire consegnare il testo
+      _finishPhoneDictation();
+      return;
+    }
+    final owner = _micOwnerButtonId;
+    if (owner != null) {
+      widget.client.pressButtonByVoice(owner);
+      return;
+    }
+    final button = _recordButtonForWakeWord();
+    if (button == null) {
+      widget.client.toggleRecordingByVoice();
+    } else {
+      widget.client.pressButtonByVoice(button.id);
+    }
+  }
+
+  /// Il pulsante di dettatura da usare per l'attivazione vocale: quello della
+  /// dashboard aperta se c'e', altrimenti il primo che si trova nelle altre.
+  ButtonSpec? _recordButtonForWakeWord() {
+    final dashboards = _pageDashboards;
+    if (dashboards.isEmpty) return null;
+    final ordered = [
+      if (_currentPage < dashboards.length) dashboards[_currentPage],
+      ...dashboards,
+    ];
+    for (final dashboard in ordered) {
+      for (final button in dashboard.buttons) {
+        if (button.isRecord) return button;
+      }
+    }
+    return null;
   }
 
   void _onLocaleChanged() {
@@ -104,6 +217,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     widget.client.removeListener(_onClientChanged);
     widget.locale.removeListener(_onLocaleChanged);
+    _wakeWord.removeListener(_onLocaleChanged);
+    _wakeWord.dispose();
     _pageController.dispose();
     WakelockPlus.disable();
     super.dispose();
@@ -160,6 +275,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _maybeVibrateForState();
     _trackMicSession();
+    // i segnali acustici del riconoscimento restano muti mentre si aspetta la
+    // frase e tornano udibili durante la dettatura (vedi SystemSounds)
+    _wakeWord.setDictating(
+      widget.client.daemonState == DaemonState.recording,
+    );
+    if (_dictatingOnPhone &&
+        widget.client.daemonState != DaemonState.recording) {
+      // il PC ha chiuso la dettatura per conto suo (rete di sicurezza sulla
+      // durata, o un altro telefono): la raccolta va chiusa comunque, senza
+      // consegnare un testo che nessuno aspetta piu'
+      setState(() => _dictatingOnPhone = false);
+      _wakeWord.stopCollecting();
+    }
+    // la connessione puo' essere appena caduta o tornata: l'ascolto sul
+    // telefono va spento e riacceso di conseguenza
+    _syncWakeWordListening();
   }
 
   /// true quando il demone sta gia' facendo qualcosa (registrazione,
@@ -519,8 +650,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSettings() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) =>
-            SettingsScreen(client: widget.client, locale: widget.locale),
+        builder: (_) => SettingsScreen(
+          client: widget.client,
+          locale: widget.locale,
+          wakeWord: _wakeWord,
+        ),
       ),
     );
     // ogni impostazione (connessione compresa) si salva e si applica da
@@ -557,7 +691,49 @@ class _HomeScreenState extends State<HomeScreen> {
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) setState(() => _flashingButtonId = null);
     });
+    if (button.isRecord) {
+      _pressRecordButton(button);
+      return;
+    }
     client.pressButton(button.id);
+  }
+
+  /// Se sia il telefono a doversi occupare della trascrizione: succede quando
+  /// il PC non puo' usare la GPU, dove Whisper impiega all'incirca il tempo
+  /// reale. Il riconoscimento del telefono e' immediato, a costo di una
+  /// trascrizione un po' piu' grezza.
+  bool get _phoneShouldTranscribe =>
+      widget.client.pcTranscriptionIsSlow && !_wakeWord.unavailable;
+
+  /// Tocco su un pulsante di dettatura: avvia, oppure ferma consegnando il
+  /// testo se a trascrivere e' stato il telefono.
+  Future<void> _pressRecordButton(ButtonSpec button, {bool byVoice = false}) async {
+    final client = widget.client;
+    if (_dictatingOnPhone) {
+      await _finishPhoneDictation();
+      return;
+    }
+    if (client.daemonState == DaemonState.recording) {
+      // dettatura del PC in corso: la ferma come sempre
+      byVoice ? client.pressButtonByVoice(button.id) : client.pressButton(button.id);
+      return;
+    }
+    if (!_phoneShouldTranscribe) {
+      byVoice ? client.pressButtonByVoice(button.id) : client.pressButton(button.id);
+      return;
+    }
+    setState(() => _dictatingOnPhone = true);
+    client.pressButtonTranscribedByPhone(button.id, byVoice: byVoice);
+    await _wakeWord.startCollecting();
+  }
+
+  /// Chiude la dettatura trascritta dal telefono e consegna il testo al PC,
+  /// che lo incolla come se l'avesse trascritto lui.
+  Future<void> _finishPhoneDictation() async {
+    if (!_dictatingOnPhone) return;
+    setState(() => _dictatingOnPhone = false);
+    final testo = await _wakeWord.stopCollecting();
+    widget.client.sendDictatedText(testo);
   }
 
   Future<void> _showAddButtonDialog(Dashboard dashboard, int row, int col) async {
@@ -1199,6 +1375,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: const Icon(Icons.history, color: Colors.white38),
                       tooltip: _s.historyTooltip,
                       onPressed: _openHistoryScreen,
+                    ),
+                  // l'ascolto della frase di attivazione non si vede da
+                  // nessun'altra parte: senza una spia, un microfono aperto
+                  // resterebbe acceso senza che l'utente lo sappia
+                  if (_phoneWakeWord || client.wakeWordEnabled)
+                    IconButton(
+                      icon: Icon(
+                        Icons.hearing,
+                        color: _wakeWord.listening || client.wakeWordEnabled
+                            ? Colors.lightBlueAccent
+                            : Colors.white38,
+                      ),
+                      tooltip: _s.wakeWordListeningNow,
+                      onPressed: _openSettings,
                     ),
                 ],
               ),

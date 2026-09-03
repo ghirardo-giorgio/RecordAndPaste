@@ -26,6 +26,7 @@ dall'altra parte.
 - [Primo avvio](#primo-avvio)
 - [La schermata principale](#la-schermata-principale)
 - [Tipi di pulsante](#tipi-di-pulsante)
+- [Attivazione vocale](#attivazione-vocale)
 - [Modalità modifica](#modalità-modifica)
 - [Dashboard](#dashboard)
 - [Impostazioni](#impostazioni)
@@ -172,6 +173,134 @@ demone ferma da solo una registrazione che supera i 3 minuti.
 
 ---
 
+## Attivazione vocale
+
+Avvia e ferma la dettatura pronunciando una frase, senza toccare il pulsante.
+Si accende dalle impostazioni, sotto *Attivazione vocale*, dove ci sono **due
+interruttori indipendenti** — si possono tenere accesi entrambi:
+
+- **Ascolta dal PC**: è il demone a tenere aperto il microfono. È l'opzione
+  più comoda: funziona anche col telefono in tasca o spento, e non consuma
+  batteria.
+- **Ascolta dal telefono**: l'app ascolta col microfono del telefono, usando
+  il riconoscimento vocale di sistema. Funziona **con l'app aperta**. Utile
+  quando si è lontani dal PC e il suo microfono non sentirebbe.
+
+Le **due frasi** — una per avviare, una per fermare — si scrivono una volta
+sola e valgono per entrambi gli ascolti (sono impostazioni del demone, quindi
+seguono il PC e non il singolo telefono). Di default sono `jarvis` e
+`jarvis stop`.
+
+Conviene scegliere parole che non si direbbero per caso parlando: un nome
+inventato funziona meglio di una parola comune. Servono almeno 3 lettere, e
+le due frasi devono essere diverse fra loro. Il riconoscimento tollera gli
+errori di trascrizione — fino a un quarto delle lettere — quindi "Jarvis Top"
+vale come "Jarvis stop". Se le frasi finiscono nel testo dettato, il PC le
+toglie da solo prima di incollare.
+
+### Se il PC non ha la GPU
+
+Se sul PC Whisper non può usare la scheda video (assente, driver mancanti o
+VRAM occupata da altro), la trascrizione lì impiega all'incirca il tempo
+reale. In quel caso **trascrive il telefono**, da solo e senza niente da
+configurare: l'app usa il riconoscimento vocale di Android — lo stesso che sta
+dietro al pulsante microfono della tastiera, ma senza tastiera a schermo — e
+manda al PC il testo già pronto, che viene incollato come sempre.
+
+Il testo arriva subito invece di farsi aspettare, ma la punteggiatura è più
+povera e il vocabolario di dettatura non si applica: il riconoscitore di
+Android non accetta suggerimenti. Serve l'app in primo piano, perché a sentire
+è il microfono del telefono.
+
+Quando la GPU torna disponibile si riprende a trascrivere sul PC.
+
+### Se ti dimentichi di fermarla
+
+Dopo dieci secondi senza sentirti parlare, la dettatura si chiude da sola e
+incolla quello che ha raccolto — comodo proprio con l'attivazione vocale,
+dove è facile dimenticare la frase di stop. L'attesa si cambia (o si
+disattiva) da *Chiudi da sola dopo il silenzio* nelle impostazioni.
+
+Non vale per il push-to-talk, dove è il dito a chiudere, e non scatta finché
+la dettatura è più corta dell'attesa impostata: una registrazione appena
+iniziata non viene chiusa solo perché non hai ancora aperto bocca.
+
+### Quando la frase viene capita in un altro modo
+
+Il riconoscimento vocale scrive quello che sente **nella lingua della
+dettatura**: una parola inventata come "Jarvis", detta in italiano, diventa
+spesso "già visto" o "ciarvis". Sul PC il problema è risolto suggerendo la
+grafia al modello, ma il riconoscitore di Android e iOS non accetta
+suggerimenti.
+
+Per questo ogni casella accetta **più forme separate da virgola** — basta che
+una combaci:
+
+```text
+Frase di avvio:  jarvis, già visto, ciarvis
+Frase di stop:   jarvis stop, già visto stop
+```
+
+Sotto le caselle compare **l'ultima frase sentita**, distinta fra PC e
+telefono: è lì che si legge come viene capita davvero, per poi aggiungerla.
+Meglio non elencare espressioni che si usano spesso parlando ("già visto" lo
+è): diventerebbero un modo per far partire la dettatura per sbaglio.
+
+Mentre si detta, la frase di stop viene cercata solo in fondo a quello che il
+telefono ha sentito: il microfono sente anche il testo che stai dettando, e
+cercarla in tutto il discorso interromperebbe la dettatura a metà.
+
+### I suoni di attivazione
+
+Il trillo che si sente all'inizio e alla fine dell'ascolto è del riconoscitore
+vocale di Android, e suona a ogni **sessione di ascolto**, non a ogni
+dettatura. Le sessioni vengono chiuse e riaperte dal sistema anche quando
+nessuno parla, quindi il telefono trilla a vuoto in continuazione.
+
+Due accorgimenti, nell'ordine in cui sono stati necessari:
+
+1. La sessione viene tenuta aperta a lungo (dieci minuti, in modalità
+   "dettatura", che regge le pause) invece di richiuderla al primo silenzio.
+   Riduce il numero di sessioni, ma non basta: Android le chiude comunque per
+   conto suo.
+2. I segnali acustici vengono **silenziati mentre si aspetta la frase** e
+   ripristinati durante la dettatura, che è l'unico momento in cui dicono
+   qualcosa di utile. Non esiste un modo ufficiale per chiedere al
+   riconoscitore di tacere, quindi si mettono in muto gli stream audio su cui
+   quei suoni finiscono (vedi `MainActivity.kt`): il silenzio copre perciò
+   anche l'audio multimediale del telefono durante l'attesa. Si disattiva con
+   *Silenzia i segnali acustici* nelle impostazioni.
+
+Vengono ripristinati solo gli stream silenziati dall'app — se ne avevi già
+messo uno in muto resta com'era — e il ripristino avviene anche se l'app viene
+chiusa mentre l'ascolto è attivo.
+
+Un'alternativa che sembra naturale — far partire il riconoscitore solo quando
+si sente una voce — in pratica non funziona: il rilevatore scatterebbe
+*durante* la parola, e il riconoscitore impiega qualche centinaio di
+millisecondi ad avviarsi, sentendo solo la coda della frase di attivazione.
+
+### Vedere che il PC sta registrando
+
+Quando la dettatura parte a voce non si tocca niente, quindi il PC mostra da
+solo un riquadro in basso allo schermo con un punto rosso che pulsa. Lo
+disegna un'estensione GNOME installata insieme al demone: finché non è attiva
+(su Wayland si carica al login successivo) non compare nulla. Vedi
+"Attivazione vocale" nel README del demone.
+
+Quando la frase di avvio viene riconosciuta, l'app preme per te il pulsante
+microfono della dashboard aperta: la dettatura eredita quindi il vocabolario
+della dashboard e l'invio automatico di quel pulsante, come se l'avessi
+toccato. La frase di stop ferma solo una dettatura in corso.
+
+Se almeno un ascolto è acceso, in alto a sinistra compare un'icona a
+orecchio: serve a non lasciare un microfono aperto senza saperlo. Al primo
+uso dell'ascolto dal telefono viene chiesto il permesso del microfono; se
+viene negato l'app lo segnala, invece di lasciare l'interruttore acceso a
+vuoto.
+
+---
+
 ## Modalità modifica
 
 Si entra con la matita in alto a sinistra. In questa modalità i pulsanti non
@@ -224,7 +353,9 @@ Raggiungibili dall'ingranaggio in alto a destra.
 
 - *Tieni premuto per parlare* — push-to-talk;
 - *Vibrazione* — riscontro tattile a inizio/fine registrazione;
-- *Segui app attiva* — si attiva anche dal mirino nella schermata principale.
+- *Segui app attiva* — si attiva anche dal mirino nella schermata principale;
+- *Ascolta dal telefono* — attivazione vocale col microfono del telefono
+  (vedi [Attivazione vocale](#attivazione-vocale)).
 
 **Impostazioni del demone** (condivise: valgono per tutti i telefoni
 collegati):
@@ -241,6 +372,10 @@ collegati):
   incolla solo dopo approvazione (modificabile prima dell'invio);
 - *Vocabolario globale* — termini da trascrivere correttamente in ogni
   contesto;
+- *Chiudi da sola dopo il silenzio* — dopo quanti secondi senza sentir parlare
+  la dettatura si ferma e incolla da sé (10 di default, "Mai" per disattivarla);
+- *Attivazione vocale* — l'ascolto sul PC e le due frasi che avviano e
+  fermano la dettatura (vedi [Attivazione vocale](#attivazione-vocale));
 - *Riavvia demone* — utile dopo un aggiornamento del suo codice, senza
   bisogno di un terminale sul PC.
 
@@ -339,6 +474,8 @@ lib/
 ├── services/
 │   ├── steno_client.dart        client TCP/TLS e protocollo JSON
 │   ├── settings_service.dart    preferenze locali (SharedPreferences)
+│   ├── wake_word_service.dart   ascolto della frase di attivazione
+│   ├── wake_phrase.dart         confronto tollerante delle frasi
 │   └── locale_service.dart      lingua dell'interfaccia
 └── l10n/strings.dart            testi in italiano e inglese
 ```

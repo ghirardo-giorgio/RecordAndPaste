@@ -339,6 +339,94 @@ class Strings {
   String get pushToTalkHint =>
       _it ? 'Tieni premuto per registrare' : 'Hold to record';
 
+  // --- chiusura automatica sul silenzio ---
+  String get silenceTimeoutTitle =>
+      _it ? 'Chiudi da sola dopo il silenzio' : 'Stop by itself after silence';
+  String get silenceTimeoutHelper => _it
+      ? 'Passati questi secondi senza sentirti parlare, la dettatura si chiude '
+            'da sola e incolla quello che ha raccolto. Comodo con '
+            'l\'attivazione vocale, quando ci si dimentica la frase di stop. '
+            'Non vale per "tieni premuto per parlare", dove è il dito a '
+            'chiudere.'
+      : 'After these seconds without hearing you speak, dictation stops by '
+            'itself and pastes what it collected. Handy with voice activation, '
+            'when you forget the stop phrase. Does not apply to push to talk, '
+            'where releasing your finger ends it.';
+  String get silenceTimeoutOff => _it ? 'Mai' : 'Never';
+  String silenceTimeoutSeconds(int seconds) =>
+      _it ? 'Dopo $seconds secondi' : 'After $seconds seconds';
+
+  // --- attivazione vocale ---
+  String get wakeWordTitle => _it ? 'Attivazione vocale' : 'Voice activation';
+  String get wakeWordIntro => _it
+      ? 'Avvia e ferma la dettatura pronunciando una frase, senza toccare il '
+            'pulsante. Le frasi valgono per entrambi gli ascolti qui sotto.'
+      : 'Start and stop dictation by saying a phrase, without touching the '
+            'button. The phrases apply to both listeners below.';
+  String get wakeWordOnPc => _it ? 'Ascolta dal PC' : 'Listen on the PC';
+  String get wakeWordOnPcHelper => _it
+      ? 'Il PC tiene aperto il microfono e aspetta la frase. E\' l\'opzione '
+            'piu\' comoda: funziona anche a telefono spento o in tasca.'
+      : 'The PC keeps the microphone open waiting for the phrase. The handiest '
+            'option: it works with the phone off or in your pocket.';
+  String get wakeWordOnPhone =>
+      _it ? 'Ascolta dal telefono' : 'Listen on the phone';
+  String get wakeWordOnPhoneHelper => _it
+      ? 'Il telefono ascolta col proprio microfono, mentre l\'app e\' aperta. '
+            'Utile se sei lontano dal PC. Consuma batteria.'
+      : 'The phone listens with its own microphone while the app is open. '
+            'Useful when you are away from the PC. Uses battery.';
+  String get wakeWordPhoneUnavailable => _it
+      ? 'Il telefono non puo\' ascoltare: manca il permesso del microfono o il '
+            'riconoscimento vocale non e\' disponibile.'
+      : 'The phone cannot listen: the microphone permission is missing or '
+            'speech recognition is unavailable.';
+  String get wakeWordListeningNow => _it ? 'In ascolto' : 'Listening';
+  String get wakePhraseStartLabel => _it ? 'Frase di avvio' : 'Start phrase';
+  String get wakePhraseStopLabel => _it ? 'Frase di stop' : 'Stop phrase';
+  String get wakePhraseHelper => _it
+      ? 'Scegli parole che non diresti per caso parlando: un nome inventato '
+            'funziona meglio di una parola comune. Se finiscono nel testo '
+            'dettato, il PC le toglie da solo. Puoi elencare piu\' forme '
+            'separate da virgola (es. "jarvis, già visto"): serve quando il '
+            'telefono capisce la tua frase in un altro modo.'
+      : 'Pick words you would not say by accident: a made-up name works better '
+            'than a common word. If they end up in the dictated text, the PC '
+            'removes them for you. You can list several forms separated by '
+            'commas (e.g. "jarvis, already seen"): useful when the phone hears '
+            'your phrase differently.';
+  String get wakeHeardTitle =>
+      _it ? 'Ultima frase sentita' : 'Last phrase heard';
+  String get wakeHeardHelper => _it
+      ? 'Quello che il riconoscimento vocale ha capito. Se la tua frase compare '
+            'qui scritta diversamente, aggiungila sopra separata da virgola: '
+            'da quel momento verra\' riconosciuta.'
+      : 'What speech recognition understood. If your phrase shows up here '
+            'spelled differently, add it above separated by a comma: from then '
+            'on it will be recognised.';
+  String get wakeSilenceBeepsTitle => _it
+      ? 'Silenzia i segnali acustici'
+      : 'Silence the beeps';
+  String get wakeSilenceBeepsHelper => _it
+      ? 'Android fa suonare un segnale ad ogni sessione di ascolto, non ad ogni '
+            'dettatura: senza questo il telefono trilla di continuo anche '
+            'stando zitti. Restano udibili mentre detti. Silenzia anche '
+            'l\'audio del telefono durante l\'attesa.'
+      : 'Android beeps on every listening session, not on every dictation: '
+            'without this the phone keeps chirping even in silence. Beeps stay '
+            'audible while you dictate. It also mutes the phone\'s audio while '
+            'waiting.';
+  String get wakeHeardFromPc => _it ? 'Dal PC' : 'From the PC';
+  String get wakeHeardFromPhone => _it ? 'Dal telefono' : 'From the phone';
+  String get wakeHeardNothingYet =>
+      _it ? 'Ancora niente' : 'Nothing yet';
+  String get wakePhraseTooShort => _it
+      ? 'Troppo corta: servono almeno 3 lettere.'
+      : 'Too short: at least 3 letters are needed.';
+  String get wakePhrasesMustDiffer => _it
+      ? 'Le due frasi devono essere diverse.'
+      : 'The two phrases must be different.';
+
   // --- sicurezza del collegamento ---
   String get securityTitle => _it ? 'Sicurezza' : 'Security';
   String get connectionEncrypted =>

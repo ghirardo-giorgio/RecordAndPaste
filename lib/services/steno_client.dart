@@ -121,6 +121,30 @@ class StenoClient extends ChangeNotifier {
   /// incollato (vedi [pendingPasteText]).
   bool confirmBeforePaste = false;
 
+  /// Attivazione vocale: [wakeWordEnabled] dice se il PC sta ascoltando col
+  /// proprio microfono. Le due frasi valgono per entrambi gli ascolti —
+  /// quello del PC e quello del telefono (vedi WakeWordService) — cosi'
+  /// l'utente le configura una volta sola.
+  bool wakeWordEnabled = false;
+  String wakePhraseStart = 'jarvis';
+  String wakePhraseStop = 'jarvis stop';
+
+  /// Ultima frase capita dal microfono del PC, riconosciuta o no. Serve a
+  /// vedere come viene sentita davvero la propria frase quando l'attivazione
+  /// non scatta: senza, resterebbe da indovinare.
+  String wakeHeardOnPc = '';
+  int wakeHeardVersion = 0;
+
+  /// Dopo quanti secondi di silenzio la dettatura si chiude da sola e incolla
+  /// quello che ha raccolto. 0 = mai.
+  int silenceTimeout = 10;
+
+  /// Su cosa gira la trascrizione sul PC: "cuda" oppure "cpu" quando la GPU
+  /// non e' utilizzabile. Con la CPU la trascrizione impiega all'incirca il
+  /// tempo reale, ed e' il momento in cui conviene trascrivere col telefono.
+  String modelDevice = 'cuda';
+  bool get pcTranscriptionIsSlow => modelDevice != 'cuda';
+
   /// Se il demone rifiuta le connessioni in chiaro, e se ha un certificato
   /// con cui cifrarle. [daemonFingerprint] e' l'impronta che dichiara di
   /// avere: serve a mostrarla nelle impostazioni accanto a quella davvero
@@ -194,6 +218,38 @@ class StenoClient extends ChangeNotifier {
   /// Preme il pulsante [id]: se e' il pulsante "record" avvia/ferma la
   /// registrazione, altrimenti simula sul PC la combinazione di tasti
   /// associata.
+  /// Preme un pulsante dicendo al demone che a farlo e' stata l'attivazione
+  /// vocale e non un dito: il demone lo usa per suggerire al modello le frasi
+  /// che si trovano nell'audio e per toglierle poi dal testo dettato (vedi
+  /// "source" in daemon.py).
+  void pressButtonByVoice(String id) {
+    _sendCmd({'cmd': 'button', 'id': id, 'source': 'wake'});
+  }
+
+  /// Avvia una dettatura dicendo al demone che a trascrivere sara' il
+  /// telefono: il PC non aprira' il proprio microfono e aspettera' il testo
+  /// gia' pronto (vedi [sendDictatedText]).
+  void pressButtonTranscribedByPhone(String id, {bool byVoice = false}) {
+    final cmd = <String, dynamic>{
+      'cmd': 'button',
+      'id': id,
+      'transcribe': 'phone',
+    };
+    if (byVoice) cmd['source'] = 'wake';
+    _sendCmd(cmd);
+  }
+
+  /// Consegna il testo trascritto dal telefono. Vale anche come "ferma la
+  /// dettatura": un messaggio solo, cosi' il PC non resta ad aspettare un
+  /// testo che potrebbe non arrivare mai.
+  void sendDictatedText(String text) {
+    _sendCmd({'cmd': 'dictated_text', 'text': text});
+  }
+
+  void toggleRecordingByVoice() {
+    _sendCmd({'cmd': 'toggle', 'source': 'wake'});
+  }
+
   void pressButton(String id) {
     if (id == 'record' &&
         (daemonState == DaemonState.transcribing ||
@@ -379,6 +435,29 @@ class StenoClient extends ChangeNotifier {
 
   void setRequireTls(bool enabled) {
     _sendCmd({'cmd': 'set_require_tls', 'enabled': enabled});
+  }
+
+  /// Avvia o ferma la dettatura senza passare da un pulsante: serve
+  /// all'attivazione vocale quando nel layout non c'e' nessun pulsante
+  /// microfono da premere al posto suo.
+  void toggleRecording() {
+    _sendCmd({'cmd': 'toggle'});
+  }
+
+  void setSilenceTimeout(int seconds) {
+    _sendCmd({'cmd': 'set_silence_timeout', 'seconds': seconds});
+  }
+
+  void setWakeWordEnabled(bool enabled) {
+    _sendCmd({'cmd': 'set_wake_word_enabled', 'enabled': enabled});
+  }
+
+  void setWakePhraseStart(String phrase) {
+    _sendCmd({'cmd': 'set_wake_phrase_start', 'phrase': phrase});
+  }
+
+  void setWakePhraseStop(String phrase) {
+    _sendCmd({'cmd': 'set_wake_phrase_stop', 'phrase': phrase});
   }
 
   void resetLayout() {
@@ -614,9 +693,18 @@ class StenoClient extends ChangeNotifier {
         pauseMediaWhileRecording =
             msg['pause_media_while_recording'] as bool? ??
             pauseMediaWhileRecording;
+        wakeWordEnabled = msg['wake_word_enabled'] as bool? ?? wakeWordEnabled;
+        wakePhraseStart = msg['wake_phrase_start'] as String? ?? wakePhraseStart;
+        wakePhraseStop = msg['wake_phrase_stop'] as String? ?? wakePhraseStop;
+        silenceTimeout = msg['silence_timeout'] as int? ?? silenceTimeout;
+        modelDevice = msg['model_device'] as String? ?? modelDevice;
         tlsAvailable = msg['tls_available'] as bool? ?? tlsAvailable;
         daemonFingerprint = msg['tls_fingerprint'] as String?;
         configVersion++;
+        break;
+      case 'wake_heard':
+        wakeHeardOnPc = msg['text'] as String? ?? wakeHeardOnPc;
+        wakeHeardVersion++;
         break;
       case 'history':
         history = (msg['items'] as List<dynamic>? ?? const [])

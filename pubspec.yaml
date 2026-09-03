@@ -41,6 +41,13 @@ dependencies:
   # Mantiene lo schermo acceso durante la registrazione
   wakelock_plus: ^1.2.10
 
+  # Riconoscimento vocale del telefono, usato solo per sentire la frase di
+  # attivazione (vedi WakeWordService): la dettatura vera resta sul PC
+  speech_to_text: ^7.0.0
+
+  # Permesso del microfono per l'ascolto della frase di attivazione
+  permission_handler: ^11.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

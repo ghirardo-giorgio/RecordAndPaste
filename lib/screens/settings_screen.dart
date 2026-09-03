@@ -6,6 +6,8 @@ import '../models/daemon_state.dart';
 import '../services/locale_service.dart';
 import '../services/settings_service.dart';
 import '../services/steno_client.dart';
+import '../services/wake_phrase.dart';
+import '../services/wake_word_service.dart';
 
 /// Lingue di dettatura comuni (stessa lista di SUPPORTED_LANGUAGES in
 /// daemon.py). I nomi restano in italiano indipendentemente dalla lingua
@@ -43,11 +45,27 @@ final Map<String, String> translateTargetLanguages = {
     if (entry.key != 'auto') entry.key: entry.value,
 };
 
+/// Attese selezionabili prima che la dettatura si chiuda da sola (0 = mai).
+/// Sono valori tondi dentro l'intervallo accettato dal demone (vedi
+/// SILENCE_TIMEOUT_MIN/MAX in daemon.py): sotto i 3 secondi una pausa per
+/// riprendere fiato basterebbe a chiudere la dettatura.
+const List<int> _silenceChoices = [0, 5, 10, 15, 20, 30, 60];
+
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.client, required this.locale});
+  const SettingsScreen({
+    super.key,
+    required this.client,
+    required this.locale,
+    this.wakeWord,
+  });
 
   final StenoClient client;
   final LocaleService locale;
+
+  /// Ascolto della frase di attivazione sul telefono: serve solo a mostrare
+  /// cosa ha sentito il riconoscitore (vedi WakeWordService.lastHeard). Puo'
+  /// mancare, ad esempio nei test della schermata.
+  final WakeWordService? wakeWord;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -62,6 +80,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _tokenController = TextEditingController();
 
   final _vocabularyController = TextEditingController();
+  final _wakeStartController = TextEditingController();
+  final _wakeStopController = TextEditingController();
 
   bool _obscureToken = true;
   bool _testing = false;
@@ -69,10 +89,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loaded = false;
   bool _pushToTalk = false;
   bool _haptics = true;
+  bool _phoneWakeWord = false;
+  bool _silenceBeeps = true;
+  String? _wakeStartError;
+  String? _wakeStopError;
   /// versione della configurazione gia' riportata nel campo vocabolario:
   /// evita di sovrascrivere quello che l'utente sta scrivendo ad ogni
   /// aggiornamento inviato dal demone
   int _vocabularyConfigVersion = -1;
+  /// stesso ruolo di [_vocabularyConfigVersion] per le frasi di attivazione
+  int _wakePhrasesConfigVersion = -1;
   /// ultime impostazioni di connessione gia' salvate/applicate: evita di
   /// riconnettersi inutilmente (con relativo sfarfallio dello stato) quando
   /// l'utente tocca fuori da un campo senza averlo davvero modificato
@@ -83,6 +109,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     widget.locale.addListener(_onChanged);
     widget.client.addListener(_onChanged);
+    // aggiorna il riquadro con l'ultima frase sentita mentre l'utente guarda
+    widget.wakeWord?.addListener(_onChanged);
     _load();
   }
 
@@ -90,10 +118,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     widget.locale.removeListener(_onChanged);
     widget.client.removeListener(_onChanged);
+    widget.wakeWord?.removeListener(_onChanged);
     _hostController.dispose();
     _portController.dispose();
     _tokenController.dispose();
     _vocabularyController.dispose();
+    _wakeStartController.dispose();
+    _wakeStopController.dispose();
     super.dispose();
   }
 
@@ -109,10 +140,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _lastAppliedSettings = settings;
     final pushToTalk = await _settingsService.loadPushToTalk();
     final haptics = await _settingsService.loadHapticFeedback();
+    final phoneWakeWord = await _settingsService.loadPhoneWakeWord();
+    final silenceBeeps = await _settingsService.loadSilenceBeeps();
     if (mounted) {
       setState(() {
         _pushToTalk = pushToTalk;
         _haptics = haptics;
+        _phoneWakeWord = phoneWakeWord;
+        _silenceBeeps = silenceBeeps;
         _loaded = true;
       });
     }
@@ -125,6 +160,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_vocabularyConfigVersion == widget.client.configVersion) return;
     _vocabularyConfigVersion = widget.client.configVersion;
     _vocabularyController.text = widget.client.vocabulary;
+  }
+
+  /// Come [_syncVocabularyField], per le due frasi di attivazione.
+  void _syncWakePhraseFields() {
+    if (_wakePhrasesConfigVersion == widget.client.configVersion) return;
+    _wakePhrasesConfigVersion = widget.client.configVersion;
+    _wakeStartController.text = widget.client.wakePhraseStart;
+    _wakeStopController.text = widget.client.wakePhraseStop;
+  }
+
+  /// Manda al demone la frase appena scritta, se e' valida. I controlli sono
+  /// gli stessi che farebbe il demone: farli qui serve a mostrare il motivo
+  /// accanto al campo invece di lasciare che la frase venga rifiutata in
+  /// silenzio.
+  void _applyWakePhrase(Strings strings, {required bool start}) {
+    final controller = start ? _wakeStartController : _wakeStopController;
+    final phrase = controller.text.trim();
+    final other = start
+        ? widget.client.wakePhraseStop
+        : widget.client.wakePhraseStart;
+    String? error;
+    if (!isValidWakePhrase(phrase)) {
+      error = strings.wakePhraseTooShort;
+    } else if (normalizePhrase(phrase) == normalizePhrase(other)) {
+      error = strings.wakePhrasesMustDiffer;
+    }
+    setState(() {
+      if (start) {
+        _wakeStartError = error;
+      } else {
+        _wakeStopError = error;
+      }
+    });
+    if (error != null) return;
+    if (start) {
+      widget.client.setWakePhraseStart(phrase);
+    } else {
+      widget.client.setWakePhraseStop(phrase);
+    }
+  }
+
+  /// Riquadro con l'ultima frase capita da uno dei due microfoni. Se e' vuoto
+  /// lo si dice invece di lasciare uno spazio bianco, che sembrerebbe un
+  /// difetto.
+  Widget _heardBox(String label, String heard, Strings strings) {
+    final vuoto = heard.trim().isEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              vuoto ? strings.wakeHeardNothingYet : heard,
+              style: TextStyle(
+                fontStyle: vuoto ? FontStyle.italic : FontStyle.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   ConnectionSettings _readForm() {
@@ -201,7 +306,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final strings = Strings(widget.locale.language);
     final connected = widget.client.status == ConnectionStatus.connected;
-    if (connected) _syncVocabularyField();
+    if (connected) {
+      _syncVocabularyField();
+      _syncWakePhraseFields();
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(strings.connectionSettingsTitle)),
@@ -512,6 +620,135 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _vocabularyController.text.trim(),
                         ),
                   ),
+
+                  const Divider(height: 40),
+                  Text(
+                    strings.silenceTimeoutTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<int>(
+                    initialValue: _silenceChoices.contains(
+                          widget.client.silenceTimeout,
+                        )
+                        ? widget.client.silenceTimeout
+                        : 10,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      helperText: strings.silenceTimeoutHelper,
+                      helperMaxLines: 5,
+                    ),
+                    items: [
+                      for (final seconds in _silenceChoices)
+                        DropdownMenuItem(
+                          value: seconds,
+                          child: Text(
+                            seconds == 0
+                                ? strings.silenceTimeoutOff
+                                : strings.silenceTimeoutSeconds(seconds),
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) widget.client.setSilenceTimeout(value);
+                    },
+                  ),
+
+                  const Divider(height: 40),
+                  Text(
+                    strings.wakeWordTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    strings.wakeWordIntro,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(strings.wakeWordOnPc),
+                    subtitle: Text(strings.wakeWordOnPcHelper),
+                    value: widget.client.wakeWordEnabled,
+                    onChanged: (value) =>
+                        widget.client.setWakeWordEnabled(value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(strings.wakeWordOnPhone),
+                    subtitle: Text(strings.wakeWordOnPhoneHelper),
+                    value: _phoneWakeWord,
+                    onChanged: (value) {
+                      setState(() => _phoneWakeWord = value);
+                      // l'ascolto vero e proprio viene acceso dalla schermata
+                      // principale al ritorno, come per le altre preferenze
+                      // locali (vedi _loadLocalPreferences in HomeScreen)
+                      _settingsService.savePhoneWakeWord(value);
+                    },
+                  ),
+                  if (_phoneWakeWord)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(strings.wakeSilenceBeepsTitle),
+                      subtitle: Text(strings.wakeSilenceBeepsHelper),
+                      value: _silenceBeeps,
+                      onChanged: (value) {
+                        setState(() => _silenceBeeps = value);
+                        _settingsService.saveSilenceBeeps(value);
+                        widget.wakeWord?.silenceBeeps = value;
+                      },
+                    ),
+                  if (widget.client.wakeWordEnabled || _phoneWakeWord) ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _wakeStartController,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: strings.wakePhraseStartLabel,
+                        errorText: _wakeStartError,
+                        helperText: strings.wakePhraseHelper,
+                        helperMaxLines: 4,
+                      ),
+                      onSubmitted: (_) => _applyWakePhrase(strings, start: true),
+                      onTapOutside: (_) =>
+                          _applyWakePhrase(strings, start: true),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _wakeStopController,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        labelText: strings.wakePhraseStopLabel,
+                        errorText: _wakeStopError,
+                      ),
+                      onSubmitted: (_) =>
+                          _applyWakePhrase(strings, start: false),
+                      onTapOutside: (_) =>
+                          _applyWakePhrase(strings, start: false),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      strings.wakeHeardTitle,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      strings.wakeHeardHelper,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    if (widget.client.wakeWordEnabled)
+                      _heardBox(
+                        strings.wakeHeardFromPc,
+                        widget.client.wakeHeardOnPc,
+                        strings,
+                      ),
+                    if (_phoneWakeWord)
+                      _heardBox(
+                        strings.wakeHeardFromPhone,
+                        widget.wakeWord?.lastHeard ?? '',
+                        strings,
+                      ),
+                  ],
 
                   const Divider(height: 40),
                   Text(
