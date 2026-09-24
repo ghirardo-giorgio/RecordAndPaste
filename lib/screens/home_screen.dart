@@ -7,6 +7,7 @@ import '../l10n/strings.dart';
 import '../models/button_spec.dart';
 import '../models/daemon_state.dart';
 import '../services/locale_service.dart';
+import '../services/phone_microphone.dart';
 import '../services/settings_service.dart';
 import '../services/steno_client.dart';
 import '../services/wake_word_service.dart';
@@ -62,6 +63,17 @@ class _HomeScreenState extends State<HomeScreen> {
   /// true mentre la dettatura in corso viene trascritta dal telefono invece
   /// che dal PC (vedi _phoneShouldTranscribe)
   bool _dictatingOnPhone = false;
+  /// Preferenza locale: registrare col microfono del telefono lasciando la
+  /// trascrizione al PC. Serve quando il microfono del PC e' occupato da
+  /// un'altra applicazione (vedi PhoneMicrophone).
+  bool _phoneMicrophone = false;
+  late final PhoneMicrophone _phoneMic;
+  /// true quando la dettatura per cui il microfono e' stato aperto e'
+  /// davvero partita sul PC, e da quando il pulsante e' stato premuto:
+  /// stesso ruolo di [_micSessionStarted] e [_micOwnerSince], per gli stessi
+  /// motivi (vedi [_trackPhoneMicSession]).
+  bool _phoneMicStarted = false;
+  DateTime? _phoneMicSince;
   /// Ascolto della frase di attivazione col microfono del telefono. E'
   /// indipendente da quello del PC (config `wake_word_enabled` del demone):
   /// l'utente puo' tenerne acceso uno, l'altro o entrambi.
@@ -99,6 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ..onStart = _onWakePhraseStart
       ..onStop = _onWakePhraseStop;
     _wakeWord.addListener(_onLocaleChanged);
+    _phoneMic = PhoneMicrophone()
+      ..onChunk = ((pcm) => widget.client.sendAudioChunk(pcm));
     _loadAndConnect();
     _loadLocalPreferences();
   }
@@ -109,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pushToTalk = await service.loadPushToTalk();
     final haptics = await service.loadHapticFeedback();
     final phoneWakeWord = await service.loadPhoneWakeWord();
+    final phoneMicrophone = await service.loadPhoneMicrophone();
     final silenceBeeps = await service.loadSilenceBeeps();
     if (!mounted) return;
     setState(() {
@@ -116,6 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _pushToTalk = pushToTalk;
       _haptics = haptics;
       _phoneWakeWord = phoneWakeWord;
+      _phoneMicrophone = phoneMicrophone;
     });
     _wakeWord.silenceBeeps = silenceBeeps;
     _syncWakeWordListening();
@@ -139,6 +155,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _syncWakeWordListening() {
     final wanted =
         _phoneWakeWord &&
+        // il microfono del telefono e' uno solo: mentre registra la dettatura
+        // non puo' anche aspettare la frase di attivazione
+        !_phoneMic.recording &&
         widget.client.status == ConnectionStatus.connected;
     if (wanted == _wakeWord.enabled) return;
     _wakeWord.setEnabled(wanted).then((_) {
@@ -219,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
     widget.locale.removeListener(_onLocaleChanged);
     _wakeWord.removeListener(_onLocaleChanged);
     _wakeWord.dispose();
+    _phoneMic.dispose();
     _pageController.dispose();
     WakelockPlus.disable();
     super.dispose();
@@ -288,6 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _dictatingOnPhone = false);
       _wakeWord.stopCollecting();
     }
+    _trackPhoneMicSession();
     // la connessione puo' essere appena caduta o tornata: l'ascolto sul
     // telefono va spento e riacceso di conseguenza
     _syncWakeWordListening();
@@ -705,6 +726,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _phoneShouldTranscribe =>
       widget.client.pcTranscriptionIsSlow && !_wakeWord.unavailable;
 
+  /// Se a registrare deve essere il microfono del telefono, lasciando la
+  /// trascrizione al PC. Non vale quando e' il telefono stesso a trascrivere:
+  /// li' l'audio non servirebbe a nessuno.
+  bool get _phoneMicShouldRecord => _phoneMicrophone && !_phoneShouldTranscribe;
+
   /// Tocco su un pulsante di dettatura: avvia, oppure ferma consegnando il
   /// testo se a trascrivere e' stato il telefono.
   Future<void> _pressRecordButton(ButtonSpec button, {bool byVoice = false}) async {
@@ -714,8 +740,22 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     if (client.daemonState == DaemonState.recording) {
-      // dettatura del PC in corso: la ferma come sempre
+      // dettatura in corso: la ferma come sempre. Se a registrare era il
+      // microfono del telefono va chiuso prima di mandare lo stop: cosi'
+      // l'ultimo pezzo di frase parte per primo e, viaggiando sulla stessa
+      // connessione, arriva al PC prima che cominci a trascrivere.
+      await _stopPhoneMicrophone();
       byVoice ? client.pressButtonByVoice(button.id) : client.pressButton(button.id);
+      return;
+    }
+    if (_phoneMicShouldRecord) {
+      // il microfono si apre prima di avvisare il PC: se il permesso manca o
+      // la scheda audio del telefono e' occupata, la dettatura non parte
+      // affatto invece di partire senza audio. I primi blocchi arrivano
+      // quando il PC non ha ancora aperto il file e vengono scartati: e' un
+      // decimo di secondo di silenzio iniziale.
+      if (!await _startPhoneMicrophone()) return;
+      client.pressButtonWithPhoneMic(button.id, byVoice: byVoice);
       return;
     }
     if (!_phoneShouldTranscribe) {
@@ -725,6 +765,75 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _dictatingOnPhone = true);
     client.pressButtonTranscribedByPhone(button.id, byVoice: byVoice);
     await _wakeWord.startCollecting();
+  }
+
+  /// Apre il microfono del telefono per la dettatura. False se non ci si e'
+  /// riusciti: l'utente lo vede, e la dettatura non parte.
+  Future<bool> _startPhoneMicrophone() async {
+    // il microfono e' uno solo: l'ascolto della frase di attivazione va
+    // chiuso prima, o su Android i due si contendono la sorgente. E' lo
+    // stesso motivo per cui il demone alterna le proprie due catture (vedi
+    // WakeWordListener in daemon.py).
+    await _wakeWord.setEnabled(false);
+    _phoneMicStarted = false;
+    _phoneMicSince = DateTime.now();
+    if (await _phoneMic.start()) {
+      if (mounted) setState(() {});
+      return true;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_s.phoneMicError(_phoneMic.lastError ?? '')),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+    _syncWakeWordListening();
+    return false;
+  }
+
+  /// Rilascio del push-to-talk: chiude il microfono del telefono prima di
+  /// mandare lo stop, cosi' l'ultimo pezzo di frase arriva al PC prima che
+  /// cominci a trascrivere.
+  Future<void> _releaseHoldToTalk(ButtonSpec button) async {
+    await _stopPhoneMicrophone();
+    widget.client.pressButtonUp(button.id);
+  }
+
+  Future<void> _stopPhoneMicrophone() async {
+    if (!_phoneMic.recording) return;
+    await _phoneMic.stop();
+    _phoneMicStarted = false;
+    _phoneMicSince = null;
+    if (mounted) setState(() {});
+    // il microfono e' di nuovo libero: l'ascolto della frase di attivazione
+    // puo' riprendere se l'utente lo vuole
+    _syncWakeWordListening();
+  }
+
+  /// Chiude il microfono quando la dettatura per cui era stato aperto non c'e'
+  /// piu': il PC puo' averla chiusa per conto suo (silenzio prolungato, rete
+  /// di sicurezza sulla durata, un altro telefono), e continuare a mandare
+  /// audio che nessuno scrive consumerebbe batteria per niente.
+  ///
+  /// Non basta guardare lo stato del demone: fra la pressione del pulsante e
+  /// il "recording" che torna indietro passa un istante, e chiudere li'
+  /// spegnerebbe il microfono appena acceso. Si aspetta quindi di aver visto
+  /// la dettatura partire davvero, o che sia passato troppo tempo perche'
+  /// possa ancora partire — il demone ignora il comando se sta gia'
+  /// trascrivendo.
+  void _trackPhoneMicSession() {
+    if (!_phoneMic.recording) return;
+    if (widget.client.daemonState == DaemonState.recording) {
+      _phoneMicStarted = true;
+      return;
+    }
+    final since = _phoneMicSince;
+    final expired =
+        since != null && DateTime.now().difference(since).inSeconds >= 5;
+    if (_phoneMicStarted || expired) _stopPhoneMicrophone();
   }
 
   /// Chiude la dettatura trascritta dal telefono e consegna il testo al PC,
@@ -1821,19 +1930,28 @@ class _HomeScreenState extends State<HomeScreen> {
           ? null
           : () => _handleCellTap(dashboard, row, col, button),
       onTapDown: (holdToTalk && !locked)
-          ? (_) {
+          ? (_) async {
               if (client.status != ConnectionStatus.connected) return;
+              // il microfono del telefono si apre prima di avvisare il PC,
+              // come per il tocco singolo (vedi _pressRecordButton)
+              final conMicrofonoDelTelefono = _phoneMicShouldRecord;
+              if (conMicrofonoDelTelefono && !await _startPhoneMicrophone()) {
+                return;
+              }
               if (!_daemonBusy) _claimMicSession(button);
-              client.pressButtonDown(button.id);
+              client.pressButtonDown(
+                button.id,
+                withPhoneMic: conMicrofonoDelTelefono,
+              );
             }
           : null,
       onTapUp: (holdToTalk && !locked)
-          ? (_) => client.pressButtonUp(button.id)
+          ? (_) => _releaseHoldToTalk(button)
           : null,
       // il rilascio va inviato anche quando il tocco viene annullato (dito
       // trascinato fuori dalla cella): altrimenti resterebbe a registrare
       onTapCancel: (holdToTalk && !locked)
-          ? () => client.pressButtonUp(button.id)
+          ? () => _releaseHoldToTalk(button)
           : null,
       // anche un microfono si rinomina e si ingrandisce: l'editor si apre
       // con la stessa pressione prolungata degli altri pulsanti, ma senza

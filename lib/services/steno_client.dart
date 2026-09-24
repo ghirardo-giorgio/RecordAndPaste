@@ -246,6 +246,26 @@ class StenoClient extends ChangeNotifier {
     _sendCmd({'cmd': 'dictated_text', 'text': text});
   }
 
+  /// Avvia una dettatura registrata dal microfono del telefono ma trascritta
+  /// dal PC: il PC non aprira' il proprio microfono e aspettera' l'audio
+  /// (vedi [sendAudioChunk]).
+  ///
+  /// Da non confondere con [pressButtonTranscribedByPhone], dove il telefono
+  /// consegna il testo gia' fatto: i due non si usano mai insieme.
+  void pressButtonWithPhoneMic(String id, {bool byVoice = false}) {
+    final cmd = <String, dynamic>{'cmd': 'button', 'id': id, 'mic': 'phone'};
+    if (byVoice) cmd['source'] = 'wake';
+    _sendCmd(cmd);
+  }
+
+  /// Manda al PC un blocco di audio registrato dal telefono (PCM 16 kHz mono
+  /// a 16 bit), che lo accoda al file della dettatura in corso. La fine la
+  /// segna il normale tocco sul pulsante: i blocchi partono prima e viaggiano
+  /// sulla stessa connessione, quindi arrivano tutti prima dello stop.
+  void sendAudioChunk(Uint8List pcm) {
+    _sendCmd({'cmd': 'audio', 'data': base64Encode(pcm)});
+  }
+
   void toggleRecordingByVoice() {
     _sendCmd({'cmd': 'toggle', 'source': 'wake'});
   }
@@ -264,8 +284,13 @@ class StenoClient extends ChangeNotifier {
   /// invece del singolo tocco che fa da interruttore. Sui pulsanti che non
   /// sono microfoni l'azione parte al [pressButtonDown] e il rilascio non
   /// fa nulla.
-  void pressButtonDown(String id) {
-    _sendCmd({'cmd': 'button_down', 'id': id});
+  /// Push-to-talk: la pressione avvia la dettatura, il rilascio la ferma.
+  /// Con [withPhoneMic] a registrare e' il microfono del telefono, come per
+  /// [pressButtonWithPhoneMic].
+  void pressButtonDown(String id, {bool withPhoneMic = false}) {
+    final cmd = <String, dynamic>{'cmd': 'button_down', 'id': id};
+    if (withPhoneMic) cmd['mic'] = 'phone';
+    _sendCmd(cmd);
   }
 
   void pressButtonUp(String id) {

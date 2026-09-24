@@ -15,6 +15,7 @@ class SettingsService {
   static const _keyHaptics = 'haptic_feedback';
   static const _keyPinnedCert = 'pinned_cert_fingerprint';
   static const _keyPhoneWakeWord = 'phone_wake_word';
+  static const _keyPhoneMicrophone = 'phone_microphone';
   static const _keySilenceBeeps = 'wake_silence_beeps';
 
   Future<ConnectionSettings> load() async {
@@ -92,6 +93,25 @@ class SettingsService {
   Future<void> savePhoneWakeWord(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyPhoneWakeWord, value);
+  }
+
+  /// Se a registrare la dettatura e' il microfono del telefono invece di
+  /// quello del PC. A trascrivere resta il PC, che riceve l'audio mentre lo si
+  /// detta (vedi PhoneMicrophone): serve quando il microfono del PC non e'
+  /// utilizzabile perche' occupato da un'altra applicazione.
+  ///
+  /// E' una preferenza del singolo telefono, come [loadPhoneWakeWord].
+  /// Disattiva di default: finche' il microfono del PC funziona, e' quello
+  /// piu' comodo — non consuma la batteria del telefono e non dipende dalla
+  /// rete.
+  Future<bool> loadPhoneMicrophone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyPhoneMicrophone) ?? false;
+  }
+
+  Future<void> savePhoneMicrophone(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyPhoneMicrophone, value);
   }
 
   /// Se silenziare i segnali acustici del riconoscimento vocale mentre si

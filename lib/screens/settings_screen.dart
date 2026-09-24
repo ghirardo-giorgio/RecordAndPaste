@@ -90,6 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushToTalk = false;
   bool _haptics = true;
   bool _phoneWakeWord = false;
+  bool _phoneMicrophone = false;
   bool _silenceBeeps = true;
   String? _wakeStartError;
   String? _wakeStopError;
@@ -141,12 +142,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final pushToTalk = await _settingsService.loadPushToTalk();
     final haptics = await _settingsService.loadHapticFeedback();
     final phoneWakeWord = await _settingsService.loadPhoneWakeWord();
+    final phoneMicrophone = await _settingsService.loadPhoneMicrophone();
     final silenceBeeps = await _settingsService.loadSilenceBeeps();
     if (mounted) {
       setState(() {
         _pushToTalk = pushToTalk;
         _haptics = haptics;
         _phoneWakeWord = phoneWakeWord;
+        _phoneMicrophone = phoneMicrophone;
         _silenceBeeps = silenceBeeps;
         _loaded = true;
       });
@@ -357,7 +360,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: _hostController,
                   decoration: InputDecoration(
                     labelText: strings.hostLabel,
-                    hintText: '192.168.50.133',
+                    hintText: '192.168.1.50',
                     border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
@@ -651,6 +654,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                     onChanged: (value) {
                       if (value != null) widget.client.setSilenceTimeout(value);
+                    },
+                  ),
+
+                  const Divider(height: 40),
+                  Text(
+                    strings.phoneMicTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(strings.phoneMicSwitch),
+                    subtitle: Text(strings.phoneMicHelper),
+                    value: _phoneMicrophone,
+                    onChanged: (value) {
+                      setState(() => _phoneMicrophone = value);
+                      // come per le altre preferenze locali, ad applicarla e'
+                      // la schermata principale al ritorno (vedi
+                      // _loadLocalPreferences in HomeScreen)
+                      _settingsService.savePhoneMicrophone(value);
                     },
                   ),
 

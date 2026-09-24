@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Record And Paste</string>
+	<string>Record and paste</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,7 +25,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Serve per sentire la frase con cui avvii e fermi la dettatura. Quello che detti viene registrato dal PC, non dal telefono.</string>
+	<string>Serve per sentire la frase con cui avvii e fermi la dettatura e, se lo scegli nelle impostazioni, per registrare la dettatura quando il microfono del PC e' occupato.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Serve a riconoscere la frase di attivazione scelta da te, per avviare e fermare la dettatura senza toccare lo schermo.</string>
 	<key>LSRequiresIPhoneOS</key>

@@ -1,4 +1,4 @@
-package com.oberon.record_and_paste
+package com.giorgioghirardo.record_and_paste
 
 import android.content.Context
 import android.media.AudioManager

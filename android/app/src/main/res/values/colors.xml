@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colore di fondo dell'icona adattiva: il navy del logo -->
+    <color name="ic_launcher_background">#101625</color>
+</resources>

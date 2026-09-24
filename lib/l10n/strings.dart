@@ -356,6 +356,26 @@ class Strings {
   String silenceTimeoutSeconds(int seconds) =>
       _it ? 'Dopo $seconds secondi' : 'After $seconds seconds';
 
+  // --- microfono della dettatura ---
+  String get phoneMicTitle =>
+      _it ? 'Microfono della dettatura' : 'Dictation microphone';
+  String get phoneMicSwitch =>
+      _it ? 'Detta col microfono del telefono' : 'Dictate with the phone mic';
+  String get phoneMicHelper => _it
+      ? 'Il telefono registra e manda l\'audio al PC, che lo trascrive come '
+            'sempre con la sua scheda grafica. Il microfono del PC resta '
+            'chiuso: utile quando lo sta usando un\'altra applicazione. '
+            'Funziona con l\'app aperta e consuma batteria.'
+      : 'The phone records and sends the audio to the PC, which transcribes it '
+            'as usual with its graphics card. The PC microphone stays closed: '
+            'useful when another application is using it. Works with the app '
+            'open and uses battery.';
+  String phoneMicError(String reason) => _it
+      ? 'Il telefono non puo\' registrare: $reason'
+      : 'The phone cannot record: $reason';
+  String get phoneMicRecording =>
+      _it ? 'Sta registrando dal telefono' : 'Recording from the phone';
+
   // --- attivazione vocale ---
   String get wakeWordTitle => _it ? 'Attivazione vocale' : 'Voice activation';
   String get wakeWordIntro => _it

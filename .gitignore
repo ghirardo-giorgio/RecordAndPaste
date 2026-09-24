@@ -4,6 +4,10 @@
 *.pyc
 *.swp
 .DS_Store
+.claude/
+.vscode/
+.pytest_cache/
+/test/failures/
 .atom/
 .build/
 .buildlog/

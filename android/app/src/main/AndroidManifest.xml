@@ -1,11 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Necessario per la connessione TCP al demone Stenografa sulla LAN -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Solo per sentire la frase di attivazione con l'app aperta (vedi
-         WakeWordService): la dettatura vera usa il microfono del PC -->
+    <!-- Per sentire la frase di attivazione (vedi WakeWordService) e, se
+         l'utente lo sceglie, per registrare la dettatura al posto del
+         microfono del PC quando quello e' occupato (vedi PhoneMicrophone).
+         In entrambi i casi serve l'app aperta. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
-        android:label="record_and_paste"
+        android:label="Record and paste"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
