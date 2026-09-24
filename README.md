@@ -1,6 +1,4 @@
-# Record and Paste
-<img width="540" height="1140" alt="Screenshot_20260924-114652" src="https://github.com/user-attachments/assets/bee537b4-109f-4b68-804f-b0645cb310c8" />
-<img width="540" height="1140" alt="Screenshot_20260924-114634" src="https://github.com/user-attachments/assets/ae4dcb94-1e6c-4ee0-b365-090a55b8a960" />
+<img width="385" height="368" alt="Screenshot From 2026-09-24 11-20-19" src="https://github.com/user-attachments/assets/ab31250b-9a7a-426c-abc2-d90b689251fc" />
 
 
 A remote control for [**Stenografa**](https://github.com/ghirardo-giorgio/stenografa) — an Android/iOS app that turns your phone into a remote microphone and a programmable button pad for the Stenografa daemon running on your PC (Linux, macOS, or Windows).
