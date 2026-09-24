@@ -316,4 +316,4 @@ They cover the idle grid, recording in progress with the other microphones locke
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Copyright © 2025 Giorgio Ghirardo.
+MIT — see [LICENSE](LICENSE). Copyright © 2026 Giorgio Ghirardo.
